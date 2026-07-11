@@ -228,16 +228,76 @@ fun test_<fn>_at_exact_expiry() {
 
 ### 5.4 Clock Boundary Precision
 
-**Why:** Many DeFi protocols use Clock for vesting schedules, lock periods, and oracle staleness. The boundary between "valid" and "expired" is a single millisecond — and protocols are inconsistent about whether they use  or .
+**Why:** Many DeFi protocols use Clock for vesting schedules, lock periods, and oracle staleness. The boundary between "valid" and "expired" is a single millisecond — and protocols are inconsistent about whether they use `<` or `<=`.
 
 **Template:**
+```move
+#[test]
+fun test_not_expired_one_ms_before() {
+    let mut ctx = tx_context::dummy();
+    let mut clock = clock::create_for_testing(&mut ctx);
+    clock::set_for_testing(&mut clock, EXPIRY_MS - 1);
+    let result = module::is_active(&thing, &clock);
+    assert!(result == true); // one ms before deadline: still active
+    clock::destroy_for_testing(clock);
+}
 
+#[test]
+fun test_expired_at_exact_deadline() {
+    let mut ctx = tx_context::dummy();
+    let mut clock = clock::create_for_testing(&mut ctx);
+    clock::set_for_testing(&mut clock, EXPIRY_MS);
+    let result = module::is_active(&thing, &clock);
+    // Document which way the boundary goes: does EXPIRY_MS mean
+    // "last valid moment" or "first invalid moment"?
+    clock::destroy_for_testing(clock);
+}
+
+#[test]
+fun test_expired_one_ms_after() {
+    let mut ctx = tx_context::dummy();
+    let mut clock = clock::create_for_testing(&mut ctx);
+    clock::set_for_testing(&mut clock, EXPIRY_MS + 1);
+    let result = module::is_active(&thing, &clock);
+    assert!(result == false); // one ms past deadline: expired
+    clock::destroy_for_testing(clock);
+}
+```
 
 ### 5.5 Shared Object Concurrent Modification
 
-**Why:** When two transactions touch the same shared object, Sui sequences them through consensus. But test_scenario runs sequentially — you cannot test true concurrency. What you CAN test is that the function handles the state left by a previous caller correctly.
+**Why:** When two transactions touch the same shared object, Sui sequences them through consensus. But `test_scenario` runs sequentially — you cannot test true concurrency. What you CAN test is that the function handles the state left by a previous caller correctly.
 
 **Template:**
+```move
+#[test]
+fun test_second_deposit_after_first() {
+    let mut scenario = test_scenario::begin(@0xA);
 
+    // User A deposits into the shared pool
+    test_scenario::next_tx(&mut scenario, @0xA);
+    {
+        let mut pool = test_scenario::take_shared<Pool>(&scenario);
+        let coin_a = coin::mint_for_testing<SUI>(1000, test_scenario::ctx(&mut scenario));
+        pool::deposit(&mut pool, coin_a);
+        test_scenario::return_shared(pool);
+    };
+
+    // User B deposits into the same pool
+    test_scenario::next_tx(&mut scenario, @0xB);
+    {
+        let mut pool = test_scenario::take_shared<Pool>(&scenario);
+        let coin_b = coin::mint_for_testing<SUI>(500, test_scenario::ctx(&mut scenario));
+        let shares = pool::deposit(&mut pool, coin_b);
+        // B gets shares proportional to deposit relative to pool
+        // balance AFTER A's deposit, not the initial empty state
+        assert!(shares == expected_for_second_depositor);
+        test_scenario::return_shared(pool);
+    };
+
+    test_scenario::end(scenario);
+}
+```
 
 The key insight: test the state transitions, not the concurrency. If deposit #2 calculates shares correctly given deposit #1's state change, the contract is safe regardless of consensus ordering.
+
