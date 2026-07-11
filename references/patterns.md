@@ -225,3 +225,19 @@ fun test_<fn>_at_exact_expiry() {
     clock::destroy_for_testing(clock);
 }
 ```
+
+### 5.4 Clock Boundary Precision
+
+**Why:** Many DeFi protocols use Clock for vesting schedules, lock periods, and oracle staleness. The boundary between "valid" and "expired" is a single millisecond — and protocols are inconsistent about whether they use  or .
+
+**Template:**
+
+
+### 5.5 Shared Object Concurrent Modification
+
+**Why:** When two transactions touch the same shared object, Sui sequences them through consensus. But test_scenario runs sequentially — you cannot test true concurrency. What you CAN test is that the function handles the state left by a previous caller correctly.
+
+**Template:**
+
+
+The key insight: test the state transitions, not the concurrency. If deposit #2 calculates shares correctly given deposit #1's state change, the contract is safe regardless of consensus ordering.
