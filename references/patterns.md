@@ -234,6 +234,7 @@ fun test_<fn>_at_exact_expiry() {
 ```move
 #[test]
 fun test_not_expired_one_ms_before() {
+    // setup: `thing` must be created with an expiry of EXPIRY_MS
     let mut ctx = tx_context::dummy();
     let mut clock = clock::create_for_testing(&mut ctx);
     clock::set_for_testing(&mut clock, EXPIRY_MS - 1);
@@ -244,17 +245,21 @@ fun test_not_expired_one_ms_before() {
 
 #[test]
 fun test_expired_at_exact_deadline() {
+    // setup: `thing` must be created with an expiry of EXPIRY_MS
     let mut ctx = tx_context::dummy();
     let mut clock = clock::create_for_testing(&mut ctx);
     clock::set_for_testing(&mut clock, EXPIRY_MS);
     let result = module::is_active(&thing, &clock);
-    // Document which way the boundary goes: does EXPIRY_MS mean
-    // "last valid moment" or "first invalid moment"?
+    // The protocol decides whether EXPIRY_MS is the last valid
+    // moment or the first invalid one. Assert the intended choice
+    // here; flip to `false` if the contract uses strict `<`.
+    assert!(result == true);
     clock::destroy_for_testing(clock);
 }
 
 #[test]
 fun test_expired_one_ms_after() {
+    // setup: `thing` must be created with an expiry of EXPIRY_MS
     let mut ctx = tx_context::dummy();
     let mut clock = clock::create_for_testing(&mut ctx);
     clock::set_for_testing(&mut clock, EXPIRY_MS + 1);
@@ -272,6 +277,7 @@ fun test_expired_one_ms_after() {
 ```move
 #[test]
 fun test_second_deposit_after_first() {
+    // setup: Pool must be created and shared in a prior tx (e.g. module::init)
     let mut scenario = test_scenario::begin(@0xA);
 
     // User A deposits into the shared pool
@@ -279,11 +285,11 @@ fun test_second_deposit_after_first() {
     {
         let mut pool = test_scenario::take_shared<Pool>(&scenario);
         let coin_a = coin::mint_for_testing<SUI>(1000, test_scenario::ctx(&mut scenario));
-        pool::deposit(&mut pool, coin_a);
+        let _ = pool::deposit(&mut pool, coin_a); // A's shares intentionally unused
         test_scenario::return_shared(pool);
     };
 
-    // User B deposits into the same pool
+    // User B deposits into the same pool — state now includes A's deposit
     test_scenario::next_tx(&mut scenario, @0xB);
     {
         let mut pool = test_scenario::take_shared<Pool>(&scenario);
