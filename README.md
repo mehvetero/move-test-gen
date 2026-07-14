@@ -22,6 +22,8 @@ Install the skill in your Claude Code environment:
 skills/
 └── move-test-gen/
     ├── SKILL.md
+    ├── scripts/
+    │   └── check-coverage.mjs
     └── references/
         └── patterns.md
 ```
@@ -38,6 +40,33 @@ or:
 The audit found a rounding issue in calculate_shares().
 Generate regression tests that fail without the fix.
 ```
+
+## Coverage checker
+
+After generating tests, verify nothing was missed:
+
+```bash
+node scripts/check-coverage.mjs ./sources ./tests
+```
+
+This scans every `assert!` and `abort` in your source modules, every `#[expected_failure]` in your tests, and reports unpaired asserts — abort paths that have no corresponding failure test.
+
+For stronger verification, add `--mutate`:
+
+```bash
+node scripts/check-coverage.mjs ./sources ./tests --mutate
+```
+
+Mutation testing injects deterministic bugs (flip a comparison, drop an assert) and checks whether your test suite catches them. If a mutation survives, the test that should have caught it is too weak.
+
+## What this proves — and what it doesn't
+
+The coverage checker is a deterministic floor: it proves every assert has a matching `#[expected_failure]` test, that generated tests compile, and (with `--mutate`) that the suite actually catches injected bugs. It does **not** prove a test asserts the right thing — that judgment stays with the reviewer.
+
+> "Never let the floor pretend to be the ceiling."
+> — [HetCreep](https://github.com/TheColliery/CoalWash), who framed this better than I could.
+
+Generation can be probabilistic; the gate never is.
 
 ## Coverage targets
 
