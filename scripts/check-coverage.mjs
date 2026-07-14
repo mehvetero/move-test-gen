@@ -10,13 +10,14 @@
  *   4. (Optional) mutation results if --mutate flag is passed
  *
  * Usage:
- *   node check-coverage.mjs ./examples/sources ./examples/tests
- *   node check-coverage.mjs ./examples/sources ./examples/tests --mutate
+ *   node check-coverage.mjs <sources-dir> <tests-dir>
+ *   node check-coverage.mjs <sources-dir> <tests-dir> --mutate
  */
 
-import { readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
-import { join, basename, relative } from 'path';
+import { readFileSync, readdirSync, writeFileSync, mkdtempSync, cpSync, rmSync } from 'fs';
+import { join, relative, resolve } from 'path';
 import { execSync } from 'child_process';
+import { tmpdir } from 'os';
 
 // ── helpers ──────────────────────────────────────────────────────────
 
@@ -38,8 +39,11 @@ function extractAsserts(filePath) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
 
-    // assert!(condition, ERROR_CODE)
-    const assertMatch = line.match(/assert!\s*\(.*?,\s*(\w+)\s*\)/);
+    // skip comments
+    if (line.startsWith('//')) continue;
+
+    // assert!(condition, ERROR_CODE) — greedy match to grab LAST arg before closing paren
+    const assertMatch = line.match(/assert!\s*\(.*,\s*(\w+)\s*\)\s*;?\s*$/);
     if (assertMatch) {
       asserts.push({
         file: filePath,
@@ -50,9 +54,9 @@ function extractAsserts(filePath) {
       });
     }
 
-    // abort ERROR_CODE
-    const abortMatch = line.match(/abort\s+(\w+)/);
-    if (abortMatch) {
+    // abort ERROR_CODE — word boundary to avoid matching inside comments
+    const abortMatch = line.match(/\babort\s+(\w+)\b/);
+    if (abortMatch && !line.startsWith('//')) {
       asserts.push({
         file: filePath,
         line: i + 1,
@@ -74,10 +78,10 @@ function extractExpectedFailures(filePath) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
 
-    // #[expected_failure(abort_code = module::ERROR_CODE)]
-    const efMatch = line.match(/expected_failure\s*\(\s*abort_code\s*=\s*[\w:]*?(\w+)\s*\)/);
+    // #[expected_failure(abort_code = module::ERROR_CODE)] or with location=
+    // Match abort_code value, stop at comma or closing paren
+    const efMatch = line.match(/expected_failure\s*\(\s*abort_code\s*=\s*[\w:]*?(\w+)\s*[,)]/);
     if (efMatch) {
-      // find the test function name (next line with 'fun')
       let fnName = '?';
       for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
         const fnMatch = lines[j].match(/fun\s+(\w+)/);
@@ -90,11 +94,12 @@ function extractExpectedFailures(filePath) {
         code: efMatch[1],
         fnName,
         text: line,
+        scoped: true,
       });
     }
 
-    // #[expected_failure] without specific code
-    if (/^\#\[expected_failure\]/.test(line)) {
+    // bare #[expected_failure] without specific code
+    if (/^\#\[expected_failure\]\s*$/.test(line)) {
       let fnName = '?';
       for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
         const fnMatch = lines[j].match(/fun\s+(\w+)/);
@@ -104,9 +109,10 @@ function extractExpectedFailures(filePath) {
       failures.push({
         file: filePath,
         line: i + 1,
-        code: '*',
+        code: null,
         fnName,
         text: line,
+        scoped: false,
       });
     }
   }
@@ -119,8 +125,9 @@ function extractExpectedFailures(filePath) {
 const MUTATIONS = [
   {
     name: 'flip-comparison',
-    desc: 'Flip < to >=',
-    pattern: /(\w+)\s*<\s*(\w+)/,
+    desc: 'Flip < to >= (comparison only, not generics)',
+    // require spaces around < to avoid matching Coin<T> / vector<u64>
+    pattern: /(\w+)\s+<\s+(\w+)/,
     replace: (m, a, b) => `${a} >= ${b}`,
   },
   {
@@ -136,60 +143,119 @@ const MUTATIONS = [
     replace: (m, a, b) => `${a} != ${b}`,
   },
   {
-    name: 'zero-amount',
-    desc: 'Replace amount with 0',
-    pattern: /assert!\s*\(\s*(\w+)\s*>\s*0/,
-    replace: () => 'assert!(true',
+    name: 'drop-assert',
+    desc: 'Comment out an assert!',
+    pattern: /^(\s*)(assert!\s*\()/,
+    replace: (m, ws, a) => `${ws}// MUTANT: ${a}`,
   },
 ];
 
-function runMutations(sourceDir, testDir) {
-  const sourceFiles = walkDir(sourceDir, '.move');
+function runMutations(packageDir, sourceDir) {
+  // baseline: run tests on unmodified code first
+  console.log('Running baseline test (unmodified code)...');
+  try {
+    execSync('sui move test 2>&1', {
+      cwd: packageDir,
+      timeout: 60000,
+      stdio: 'pipe',
+    });
+    console.log('Baseline: PASS ✓\n');
+  } catch (e) {
+    const output = e.stdout?.toString() || e.stderr?.toString() || '';
+    if (output.includes('not found') || output.includes('No such file')) {
+      console.log('ERROR: sui CLI not found. Cannot run mutation testing without sui.');
+      console.log('Install: https://docs.sui.io/build/install\n');
+      return null;
+    }
+    console.log('ERROR: Baseline tests fail on unmodified code.');
+    console.log('Fix your tests before running mutation testing.\n');
+    return null;
+  }
+
+  // work on a temp copy to protect user's source
+  const tempDir = mkdtempSync(join(tmpdir(), 'mtg-mutate-'));
+  cpSync(packageDir, tempDir, { recursive: true });
+  const tempSourceDir = join(tempDir, relative(packageDir, sourceDir));
+
+  const sourceFiles = walkDir(tempSourceDir, '.move');
   const results = [];
 
-  for (const srcFile of sourceFiles) {
-    const original = readFileSync(srcFile, 'utf8');
-    const lines = original.split('\n');
+  const cleanup = () => {
+    try { rmSync(tempDir, { recursive: true, force: true }); } catch {}
+  };
 
-    for (const mut of MUTATIONS) {
-      for (let i = 0; i < lines.length; i++) {
-        if (!mut.pattern.test(lines[i])) continue;
-        if (lines[i].trim().startsWith('//')) continue;
+  // handle SIGINT gracefully
+  process.on('SIGINT', () => {
+    console.log('\nInterrupted — cleaning up temp directory...');
+    cleanup();
+    process.exit(130);
+  });
 
-        // apply mutation
-        const mutated = [...lines];
-        mutated[i] = mutated[i].replace(mut.pattern, mut.replace);
-        writeFileSync(srcFile, mutated.join('\n'));
+  try {
+    for (const srcFile of sourceFiles) {
+      const original = readFileSync(srcFile, 'utf8');
+      const lines = original.split('\n');
 
-        // run tests
-        let killed = false;
-        try {
-          execSync('sui move test 2>&1', {
-            cwd: join(sourceDir, '..'),
-            timeout: 30000,
-            stdio: 'pipe',
+      for (const mut of MUTATIONS) {
+        for (let i = 0; i < lines.length; i++) {
+          if (!mut.pattern.test(lines[i])) continue;
+          if (lines[i].trim().startsWith('//')) continue;
+
+          // apply mutation in temp copy
+          const mutated = [...lines];
+          mutated[i] = mutated[i].replace(mut.pattern, mut.replace);
+          writeFileSync(srcFile, mutated.join('\n'));
+
+          // check if mutant compiles first
+          let compiles = true;
+          try {
+            execSync('sui move build 2>&1', {
+              cwd: tempDir,
+              timeout: 30000,
+              stdio: 'pipe',
+            });
+          } catch {
+            compiles = false;
+          }
+
+          if (!compiles) {
+            // stillborn mutant — doesn't compile, skip
+            writeFileSync(srcFile, original);
+            continue;
+          }
+
+          // run tests against compiled mutant
+          let killed = false;
+          try {
+            execSync('sui move test 2>&1', {
+              cwd: tempDir,
+              timeout: 30000,
+              stdio: 'pipe',
+            });
+            // tests passed = mutation survived = weak test
+            killed = false;
+          } catch {
+            // tests failed = mutation killed = good
+            killed = true;
+          }
+
+          results.push({
+            file: relative(tempDir, srcFile),
+            line: i + 1,
+            mutation: mut.name,
+            desc: mut.desc,
+            original: lines[i].trim(),
+            killed,
           });
-          // tests passed = mutation survived = bad
-          killed = false;
-        } catch {
-          // tests failed = mutation killed = good
-          killed = true;
+
+          // restore for next mutation
+          writeFileSync(srcFile, original);
+          break; // one mutation per type per file
         }
-
-        results.push({
-          file: relative(process.cwd(), srcFile),
-          line: i + 1,
-          mutation: mut.name,
-          desc: mut.desc,
-          original: lines[i].trim(),
-          killed,
-        });
-
-        // restore original
-        writeFileSync(srcFile, original);
-        break; // one mutation per type per file
       }
     }
+  } finally {
+    cleanup();
   }
 
   return results;
@@ -203,29 +269,45 @@ if (args.length < 2) {
   process.exit(1);
 }
 
-const [sourceDir, testDir] = args;
+const [sourceDir, testDir] = args.map(a => resolve(a));
 const doMutate = args.includes('--mutate');
 
 console.log('=== move-test-gen coverage checker ===\n');
 
 // Layer 1: collect asserts and expected_failures
-const sourceFiles = walkDir(sourceDir, '.move');
-const testFiles = walkDir(testDir, '.move');
+let sourceFiles, testFiles;
+try {
+  sourceFiles = walkDir(sourceDir, '.move');
+  testFiles = walkDir(testDir, '.move');
+} catch (e) {
+  console.error(`Error: cannot read directory — ${e.message}`);
+  process.exit(1);
+}
 
 const allAsserts = sourceFiles.flatMap(extractAsserts);
 const allFailures = testFiles.flatMap(extractExpectedFailures);
+const scopedFailures = allFailures.filter(f => f.scoped);
+const unscopedFailures = allFailures.filter(f => !f.scoped);
 
 console.log(`Source files: ${sourceFiles.length}`);
 console.log(`Test files:   ${testFiles.length}`);
 console.log(`Asserts found:           ${allAsserts.length}`);
-console.log(`Expected failures found: ${allFailures.length}\n`);
+console.log(`Expected failures found: ${allFailures.length} (${scopedFailures.length} scoped, ${unscopedFailures.length} unscoped)\n`);
 
-// pair them
-const assertCodes = new Set(allAsserts.map(a => a.code));
-const failureCodes = new Set(allFailures.map(f => f.code));
+if (unscopedFailures.length > 0) {
+  console.log('Note: unscoped #[expected_failure] tests (no abort_code):');
+  for (const u of unscopedFailures) {
+    const rel = relative(process.cwd(), u.file);
+    console.log(`  ${rel}:${u.line} → ${u.fnName}`);
+  }
+  console.log('  These catch any abort but are not counted toward specific assert coverage.\n');
+}
 
-const unpaired = allAsserts.filter(a => !failureCodes.has(a.code) && !failureCodes.has('*'));
-const covered = allAsserts.filter(a => failureCodes.has(a.code) || failureCodes.has('*'));
+// pair only with scoped failures
+const failureCodes = new Set(scopedFailures.map(f => f.code));
+
+const unpaired = allAsserts.filter(a => !failureCodes.has(a.code));
+const covered = allAsserts.filter(a => failureCodes.has(a.code));
 
 console.log('--- Coverage ---');
 console.log(`Covered:  ${covered.length}/${allAsserts.length}`);
@@ -244,7 +326,7 @@ if (covered.length > 0) {
   console.log('\nCovered asserts:');
   for (const c of covered) {
     const rel = relative(process.cwd(), c.file);
-    const match = allFailures.find(f => f.code === c.code || f.code === '*');
+    const match = scopedFailures.find(f => f.code === c.code);
     console.log(`  ✓ ${c.code} (${rel}:${c.line}) → ${match?.fnName || '?'}`);
   }
 }
@@ -252,31 +334,38 @@ if (covered.length > 0) {
 // Layer 2: mutation testing (optional)
 if (doMutate) {
   console.log('\n--- Mutation Testing ---\n');
-  console.log('Injecting deterministic mutations into source...\n');
 
-  const mutResults = runMutations(sourceDir, testDir);
+  // resolve package root (parent of sources dir)
+  const packageDir = resolve(sourceDir, '..');
+  const mutResults = runMutations(packageDir, sourceDir);
 
-  const killed = mutResults.filter(r => r.killed);
-  const survived = mutResults.filter(r => !r.killed);
+  if (mutResults === null) {
+    console.log('Mutation testing skipped (see errors above).\n');
+  } else if (mutResults.length === 0) {
+    console.log('No applicable mutations found in source files.\n');
+  } else {
+    const killed = mutResults.filter(r => r.killed);
+    const survived = mutResults.filter(r => !r.killed);
 
-  console.log(`Mutations: ${mutResults.length} total`);
-  console.log(`Killed:    ${killed.length} (tests caught the bug ✓)`);
-  console.log(`Survived:  ${survived.length} (tests missed the bug ✗)`);
+    console.log(`Mutations: ${mutResults.length} applied (stillborn excluded)`);
+    console.log(`Killed:    ${killed.length} (tests caught the bug ✓)`);
+    console.log(`Survived:  ${survived.length} (tests missed the bug ✗)`);
 
-  if (survived.length > 0) {
-    console.log('\nSurviving mutations (test suite did NOT catch these):');
-    for (const s of survived) {
-      console.log(`  ✗ ${s.file}:${s.line} [${s.mutation}] ${s.desc}`);
-      console.log(`    ${s.original}`);
+    if (survived.length > 0) {
+      console.log('\nSurviving mutations (test suite did NOT catch these):');
+      for (const s of survived) {
+        console.log(`  ✗ ${s.file}:${s.line} [${s.mutation}] ${s.desc}`);
+        console.log(`    ${s.original}`);
+      }
+    }
+
+    const score = Math.round((killed.length / mutResults.length) * 100);
+    console.log(`\nMutation score: ${score}%`);
+
+    if (survived.length > 0) {
+      process.exitCode = 1;
     }
   }
-
-  const score = mutResults.length > 0
-    ? Math.round((killed.length / mutResults.length) * 100)
-    : 100;
-  console.log(`\nMutation score: ${score}%`);
-  if (score === 100) console.log('All mutations killed — test suite is effective.');
-  else console.log(`${survived.length} mutation(s) survived — consider strengthening tests.`);
 }
 
 // summary
