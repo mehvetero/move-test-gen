@@ -178,6 +178,7 @@ const MUTATIONS = [
   {
     name: 'flip-lt',
     desc: 'Flip < to >=',
+    // \s+ (not \s*) so generics like Vector<Coin> are never matched
     pattern: /(\w+)\s+<\s+(\w+)/,
     replace: (m, a, b) => `${a} >= ${b}`,
   },
@@ -402,6 +403,19 @@ if (covered.length > 0) {
     const rel = relative(process.cwd(), c.file);
     const match = scopedFailures.find(f => f.code === c.code);
     console.log(`  ✓ ${c.code} (${rel}:${c.line}) → ${match?.fnName || '?'}`);
+  }
+}
+
+// warn about shared error codes (multiple asserts map to one test)
+const codeCounts = {};
+for (const a of allAsserts) { codeCounts[a.code] = (codeCounts[a.code] || 0) + 1; }
+const shared = Object.entries(codeCounts).filter(([, n]) => n > 1);
+if (shared.length > 0) {
+  console.log('\n⚠ Shared abort codes (one test covers multiple asserts — consider name-based pairing):');
+  for (const [code, count] of shared) {
+    const locs = allAsserts.filter(a => a.code === code)
+      .map(a => `${relative(process.cwd(), a.file)}:${a.line}`);
+    console.log(`  ${code} appears ${count}× — ${locs.join(', ')}`);
   }
 }
 

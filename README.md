@@ -59,6 +59,8 @@ node scripts/check-coverage.mjs ./sources ./tests --mutate
 
 Mutation testing injects deterministic bugs (flip a comparison, drop an assert) and checks whether your test suite catches them. If a mutation survives, the test that should have caught it is too weak.
 
+By default, `--mutate` applies one mutation per operator per line. All 7 operators (flip `<`/`>`/`<=`/`>=`/`==`/`!=`, drop `assert!`) run exhaustively — every matchable line is tested.
+
 ## What this proves — and what it doesn't
 
 The coverage checker is a deterministic floor: it proves every assert has a matching `#[expected_failure]` test, that generated tests compile, and (with `--mutate`) that the suite actually catches injected bugs. It does **not** prove a test asserts the right thing — that judgment stays with the reviewer.
@@ -85,6 +87,7 @@ The checker is a regex-based parser, not a compiler. It handles the common patte
 
 - **Multi-line attributes** — `#[expected_failure(...)]` split across lines is not detected. Keep attributes on a single line.
 - **Mutation testing** requires `sui` CLI installed locally. Layer 1 (assert pairing) works anywhere.
+- **Abort code pairing** is by error constant name, not by which function throws it. If two functions use the same `EZeroAmount`, one `#[expected_failure]` test covers both — the checker warns about this but does not flag it as unpaired.
 
 ## Pairs with
 
