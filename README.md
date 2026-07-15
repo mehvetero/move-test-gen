@@ -81,9 +81,8 @@ The skill aims for:
 
 ## Known limitations
 
-- **Line-based parsing** — the checker reads one line at a time, so multi-line `assert!(...)` or multi-line attributes are not seen. Keep asserts on a single line for accurate coverage.
-- **String literals** — `//` inside a string literal (e.g., `b"https://..."`) is treated as a comment boundary and may cause that line to be skipped. In practice this rarely affects error-constant extraction.
-- **Module-qualified aborts** — `abort 0x2::module::ECode` currently captures `0x2` instead of `ECode`. Use unqualified abort constants for accurate pairing.
+- **Multi-line attributes** — `#[expected_failure(...)]` split across lines is not detected. Keep attributes on a single line.
+- **Mutation testing** requires `sui` CLI installed locally. Layer 1 (assert pairing) works anywhere.
 
 ## Pairs with
 

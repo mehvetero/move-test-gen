@@ -31,6 +31,40 @@ function walkDir(dir, ext) {
   return results;
 }
 
+function stripComment(line) {
+  // Remove trailing // comment, but not inside string literals
+  let inString = false;
+  let quote = null;
+  for (let i = 0; i < line.length - 1; i++) {
+    const ch = line[i];
+    if (inString) {
+      if (ch === '\\') { i++; continue; } // skip escaped char
+      if (ch === quote) inString = false;
+    } else {
+      if (ch === '"' || ch === '\'') { inString = true; quote = ch; }
+      if (ch === '/' && line[i + 1] === '/' && !inString) return line.slice(0, i).trim();
+    }
+  }
+  return line.trim();
+}
+
+function joinMultiline(lines, startIdx) {
+  // Join lines until parentheses balance (for multi-line assert!/abort)
+  let result = '';
+  let depth = 0;
+  let started = false;
+  for (let i = startIdx; i < lines.length; i++) {
+    const clean = stripComment(lines[i]);
+    result += ' ' + clean;
+    for (const ch of clean) {
+      if (ch === '(') { depth++; started = true; }
+      if (ch === ')') depth--;
+    }
+    if (started && depth <= 0) break;
+  }
+  return result.trim();
+}
+
 function extractAsserts(filePath) {
   const content = readFileSync(filePath, 'utf8');
   const lines = content.split('\n');
@@ -39,24 +73,28 @@ function extractAsserts(filePath) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
 
-    // skip comments
+    // skip full-line comments
     if (line.startsWith('//')) continue;
 
-    // assert!(condition, ERROR_CODE) — strip trailing comment, greedy last arg
-    const code = line.replace(/\/\/.*$/, '').trim();
-    const assertMatch = code.match(/assert!\s*\(.*,\s*(\w+)\s*\)/);
-    if (assertMatch) {
-      asserts.push({
-        file: filePath,
-        line: i + 1,
-        code: assertMatch[1],
-        text: line,
-        type: 'assert',
-      });
+    const code = stripComment(line);
+
+    // detect assert! start — may span multiple lines
+    if (/assert!\s*\(/.test(code)) {
+      const full = code.includes(')') ? code : joinMultiline(lines, i);
+      const assertMatch = full.match(/assert!\s*\(.*,\s*(\w+)\s*\)/);
+      if (assertMatch) {
+        asserts.push({
+          file: filePath,
+          line: i + 1,
+          code: assertMatch[1],
+          text: line,
+          type: 'assert',
+        });
+      }
     }
 
-    // abort ERROR_CODE — use comment-stripped code to avoid inline comment false positives
-    const abortMatch = code.match(/\babort\s+(\w+)\b/);
+    // abort ERROR_CODE — handle module-qualified (take last segment after ::)
+    const abortMatch = code.match(/\babort\s+(?:[\w:]*::)?(\w+)\b/);
     if (abortMatch) {
       asserts.push({
         file: filePath,
@@ -81,7 +119,7 @@ function extractExpectedFailures(filePath) {
 
     // skip commented-out test annotations
     if (line.startsWith('//')) continue;
-    const src = line.replace(/\/\/.*$/, '').trim();
+    const src = stripComment(line);
 
     // #[expected_failure(abort_code = module::ERROR_CODE)] or with location=
     // Match abort_code value, stop at comma or closing paren
