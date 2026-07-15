@@ -79,9 +79,13 @@ function extractExpectedFailures(filePath) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
 
+    // skip commented-out test annotations
+    if (line.startsWith('//')) continue;
+    const src = line.replace(/\/\/.*$/, '').trim();
+
     // #[expected_failure(abort_code = module::ERROR_CODE)] or with location=
     // Match abort_code value, stop at comma or closing paren
-    const efMatch = line.match(/expected_failure\s*\(\s*abort_code\s*=\s*[\w:]*?(\w+)\s*[,)]/);
+    const efMatch = src.match(/expected_failure\s*\(\s*abort_code\s*=\s*[\w:]*?(\w+)\s*[,)]/);
     if (efMatch) {
       let fnName = '?';
       for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
@@ -100,7 +104,7 @@ function extractExpectedFailures(filePath) {
     }
 
     // expected_failure without abort_code (bare, arithmetic_error, out_of_gas, etc.)
-    if (/^\#\[.*expected_failure/.test(line) && !efMatch) {
+    if (/^\#\[.*expected_failure/.test(src) && !efMatch) {
       let fnName = '?';
       for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
         const fnMatch = lines[j].match(/fun\s+(\w+)/);
