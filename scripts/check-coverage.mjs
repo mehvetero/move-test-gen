@@ -176,11 +176,16 @@ function extractExpectedFailures(filePath) {
 
 const MUTATIONS = [
   {
-    name: 'flip-comparison',
-    desc: 'Flip < to >= (comparison only, not generics)',
-    // require spaces around < to avoid matching Coin<T> / vector<u64>
+    name: 'flip-lt',
+    desc: 'Flip < to >=',
     pattern: /(\w+)\s+<\s+(\w+)/,
     replace: (m, a, b) => `${a} >= ${b}`,
+  },
+  {
+    name: 'flip-gt',
+    desc: 'Flip > to <=',
+    pattern: /(\w+)\s+>\s+(\w+)/,
+    replace: (m, a, b) => `${a} <= ${b}`,
   },
   {
     name: 'flip-lte',
@@ -189,10 +194,22 @@ const MUTATIONS = [
     replace: (m, a, b) => `${a} > ${b}`,
   },
   {
+    name: 'flip-gte',
+    desc: 'Flip >= to <',
+    pattern: /(\w+)\s*>=\s*(\w+)/,
+    replace: (m, a, b) => `${a} < ${b}`,
+  },
+  {
     name: 'flip-eq',
     desc: 'Flip == to !=',
     pattern: /(\w+)\s*==\s*(\w+)/,
     replace: (m, a, b) => `${a} != ${b}`,
+  },
+  {
+    name: 'flip-neq',
+    desc: 'Flip != to ==',
+    pattern: /(\w+)\s*!=\s*(\w+)/,
+    replace: (m, a, b) => `${a} == ${b}`,
   },
   {
     name: 'drop-assert',
@@ -306,7 +323,6 @@ function runMutations(packageDir, sourceDir) {
 
           // restore for next mutation
           writeFileSync(srcFile, original);
-          break; // one mutation per type per file
         }
       }
     }
@@ -397,6 +413,7 @@ if (doMutate) {
 
   if (mutResults === null) {
     console.log('Mutation testing skipped (see errors above).\n');
+    process.exitCode = 1;
   } else if (mutResults.length === 0) {
     console.log('No applicable mutations found in source files.\n');
   } else {
