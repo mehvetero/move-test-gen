@@ -42,8 +42,9 @@ function extractAsserts(filePath) {
     // skip comments
     if (line.startsWith('//')) continue;
 
-    // assert!(condition, ERROR_CODE) — greedy match to grab LAST arg before closing paren
-    const assertMatch = line.match(/assert!\s*\(.*,\s*(\w+)\s*\)\s*;?\s*$/);
+    // assert!(condition, ERROR_CODE) — strip trailing comment, greedy last arg
+    const code = line.replace(/\/\/.*$/, '').trim();
+    const assertMatch = code.match(/assert!\s*\(.*,\s*(\w+)\s*\)/);
     if (assertMatch) {
       asserts.push({
         file: filePath,
@@ -54,9 +55,9 @@ function extractAsserts(filePath) {
       });
     }
 
-    // abort ERROR_CODE — word boundary to avoid matching inside comments
-    const abortMatch = line.match(/\babort\s+(\w+)\b/);
-    if (abortMatch && !line.startsWith('//')) {
+    // abort ERROR_CODE — use comment-stripped code to avoid inline comment false positives
+    const abortMatch = code.match(/\babort\s+(\w+)\b/);
+    if (abortMatch) {
       asserts.push({
         file: filePath,
         line: i + 1,
@@ -98,8 +99,8 @@ function extractExpectedFailures(filePath) {
       });
     }
 
-    // bare #[expected_failure] without specific code
-    if (/^\#\[expected_failure\]\s*$/.test(line)) {
+    // expected_failure without abort_code (bare, arithmetic_error, out_of_gas, etc.)
+    if (/^\#\[.*expected_failure/.test(line) && !efMatch) {
       let fnName = '?';
       for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
         const fnMatch = lines[j].match(/fun\s+(\w+)/);
@@ -153,16 +154,19 @@ const MUTATIONS = [
 function runMutations(packageDir, sourceDir) {
   // baseline: run tests on unmodified code first
   console.log('Running baseline test (unmodified code)...');
+  let baselineMs;
   try {
+    const start = Date.now();
     execSync('sui move test 2>&1', {
       cwd: packageDir,
-      timeout: 60000,
+      timeout: 120000,
       stdio: 'pipe',
     });
-    console.log('Baseline: PASS ✓\n');
+    baselineMs = Date.now() - start;
+    console.log(`Baseline: PASS ✓ (${Math.round(baselineMs / 1000)}s)\n`);
   } catch (e) {
     const output = e.stdout?.toString() || e.stderr?.toString() || '';
-    if (output.includes('not found') || output.includes('No such file')) {
+    if (output.includes('not found') || output.includes('No such file') || output.includes('not recognized')) {
       console.log('ERROR: sui CLI not found. Cannot run mutation testing without sui.');
       console.log('Install: https://docs.sui.io/build/install\n');
       return null;
@@ -171,6 +175,7 @@ function runMutations(packageDir, sourceDir) {
     console.log('Fix your tests before running mutation testing.\n');
     return null;
   }
+  const mutantTimeout = Math.max(30000, baselineMs * 3);
 
   // work on a temp copy to protect user's source
   const tempDir = mkdtempSync(join(tmpdir(), 'mtg-mutate-'));
@@ -211,7 +216,7 @@ function runMutations(packageDir, sourceDir) {
           try {
             execSync('sui move build 2>&1', {
               cwd: tempDir,
-              timeout: 30000,
+              timeout: mutantTimeout,
               stdio: 'pipe',
             });
           } catch {
@@ -229,7 +234,7 @@ function runMutations(packageDir, sourceDir) {
           try {
             execSync('sui move test 2>&1', {
               cwd: tempDir,
-              timeout: 30000,
+              timeout: mutantTimeout,
               stdio: 'pipe',
             });
             // tests passed = mutation survived = weak test
@@ -378,4 +383,8 @@ if (unpaired.length > 0) {
   console.log(`⚠ ${unpaired.length} assert(s) have no expected_failure test`);
   process.exit(1);
 }
-console.log('✓ All asserts have matching expected_failure tests');
+if (process.exitCode === 1) {
+  console.log('✓ All asserts paired, but mutation testing found weaknesses (see above)');
+} else {
+  console.log('✓ All asserts have matching expected_failure tests');
+}
