@@ -81,6 +81,8 @@ The skill aims for:
 
 ## Known limitations
 
+The checker is a regex-based parser, not a compiler. It handles the common patterns — including multi-line asserts, module-qualified aborts, and string literals with `//` — but edge cases exist:
+
 - **Multi-line attributes** — `#[expected_failure(...)]` split across lines is not detected. Keep attributes on a single line.
 - **Mutation testing** requires `sui` CLI installed locally. Layer 1 (assert pairing) works anywhere.
 

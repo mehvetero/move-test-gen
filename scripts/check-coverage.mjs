@@ -49,16 +49,25 @@ function stripComment(line) {
 }
 
 function joinMultiline(lines, startIdx) {
-  // Join lines until parentheses balance (for multi-line assert!/abort)
+  // Join lines until parentheses balance, respecting string literals
   let result = '';
   let depth = 0;
   let started = false;
   for (let i = startIdx; i < lines.length; i++) {
     const clean = stripComment(lines[i]);
     result += ' ' + clean;
-    for (const ch of clean) {
-      if (ch === '(') { depth++; started = true; }
-      if (ch === ')') depth--;
+    let inStr = false;
+    let q = null;
+    for (let j = 0; j < clean.length; j++) {
+      const ch = clean[j];
+      if (inStr) {
+        if (ch === '\\') { j++; continue; }
+        if (ch === q) inStr = false;
+      } else {
+        if (ch === '"' || ch === "\'") { inStr = true; q = ch; }
+        if (ch === '(') { depth++; started = true; }
+        if (ch === ')') depth--;
+      }
     }
     if (started && depth <= 0) break;
   }
@@ -80,7 +89,7 @@ function extractAsserts(filePath) {
 
     // detect assert! start — may span multiple lines
     if (/assert!\s*\(/.test(code)) {
-      const full = code.includes(')') ? code : joinMultiline(lines, i);
+      const full = joinMultiline(lines, i);
       const assertMatch = full.match(/assert!\s*\(.*,\s*(\w+)\s*\)/);
       if (assertMatch) {
         asserts.push({
