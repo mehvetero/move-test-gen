@@ -343,6 +343,8 @@ if (args.length < 2) {
 
 const [sourceDir, testDir] = args.map(a => resolve(a));
 const doMutate = args.includes('--mutate');
+let mutationWeak = false;
+let mutationSkipped = false;
 
 console.log('=== move-test-gen coverage checker ===\n');
 
@@ -413,6 +415,7 @@ if (doMutate) {
 
   if (mutResults === null) {
     console.log('Mutation testing skipped (see errors above).\n');
+    mutationSkipped = true;
     process.exitCode = 1;
   } else if (mutResults.length === 0) {
     console.log('No applicable mutations found in source files.\n');
@@ -436,6 +439,7 @@ if (doMutate) {
     console.log(`\nMutation score: ${score}%`);
 
     if (survived.length > 0) {
+      mutationWeak = true;
       process.exitCode = 1;
     }
   }
@@ -451,7 +455,9 @@ if (unpaired.length > 0) {
   console.log(`⚠ ${unpaired.length} assert(s) have no expected_failure test`);
   process.exit(1);
 }
-if (process.exitCode === 1) {
+if (mutationSkipped) {
+  console.log('⚠ All asserts paired, but --mutate was requested and could not run');
+} else if (mutationWeak) {
   console.log('✓ All asserts paired, but mutation testing found weaknesses (see above)');
 } else {
   console.log('✓ All asserts have matching expected_failure tests');
