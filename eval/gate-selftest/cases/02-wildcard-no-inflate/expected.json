@@ -1,0 +1,7 @@
+{
+  "note": "one bare #[expected_failure] present: reported as unscoped, coverage must stay 10/11",
+  "asserts": 11,
+  "covered": "10/11",
+  "exit": 1,
+  "stdout_contains": ["unscoped", "E_LOCKED"]
+}

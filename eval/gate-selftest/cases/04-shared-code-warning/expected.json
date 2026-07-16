@@ -1,0 +1,7 @@
+{
+  "note": "same code in two functions: name-based pairing covers both, warning must fire",
+  "asserts": 2,
+  "covered": "2/2",
+  "exit": 0,
+  "stdout_contains": ["Shared abort codes", "EDup"]
+}

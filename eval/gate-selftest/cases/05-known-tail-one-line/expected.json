@@ -1,0 +1,7 @@
+{
+  "note": "KNOWN LIMITATION pinned, not a bug: two asserts on one line -> greedy regex sees only the last (E2). If this case ever finds 2 asserts, the limitation was fixed - update README.",
+  "asserts": 1,
+  "covered": "1/1",
+  "exit": 0,
+  "stdout_contains": ["E2"]
+}

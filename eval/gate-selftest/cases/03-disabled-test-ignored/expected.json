@@ -1,0 +1,7 @@
+{
+  "note": "a commented-out expected_failure attribute must not cover E_LOCKED",
+  "asserts": 11,
+  "covered": "10/11",
+  "exit": 1,
+  "stdout_contains": ["E_LOCKED"]
+}

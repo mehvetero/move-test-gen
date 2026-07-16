@@ -1,0 +1,8 @@
+{
+  "note": "5 rounds of parser traps: comma-in-condition, trailing comments, // and ) inside string literals, three multiline styles, inline-comment abort. All codes unique.",
+  "asserts": 11,
+  "covered": "10/11",
+  "exit": 1,
+  "stdout_contains": ["E_LOCKED", "E_EMPTY", "E_NOT_ADMIN", "E_BAD_PREFIX"],
+  "stdout_absent": ["Shared abort", "sender", "addr\n"]
+}
