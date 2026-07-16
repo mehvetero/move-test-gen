@@ -15,11 +15,10 @@
  */
 
 import { readFileSync, readdirSync, writeFileSync, mkdtempSync, cpSync, rmSync } from 'fs';
-import { join, relative, resolve, dirname } from 'path';
+import { join, relative, resolve } from 'path';
 import { execSync } from 'child_process';
 import { tmpdir } from 'os';
-import { fileURLToPath } from 'url';
-import { classifySurvivors } from './classify.mjs';
+import { identifyProbeCandidates, finalizeEvidence } from './classify.mjs';
 
 // ── helpers ──────────────────────────────────────────────────────────
 
@@ -336,6 +335,43 @@ function runMutations(packageDir, sourceDir) {
   return results;
 }
 
+// ── joint mutant probe ──────────────────────────────────────────────
+
+function runJointMutant(packageDir, sourceDir, candidate) {
+  const tempDir = mkdtempSync(join(tmpdir(), 'mtg-probe-'));
+  cpSync(packageDir, tempDir, { recursive: true });
+
+  try {
+    const srcFile = join(tempDir, candidate.file);
+    const original = readFileSync(srcFile, 'utf8');
+    const lines = original.split('\n');
+
+    for (const ln of candidate.lines) {
+      const idx = ln - 1;
+      if (idx >= 0 && idx < lines.length && /assert!\s*\(/.test(lines[idx])) {
+        lines[idx] = lines[idx].replace(/^(\s*)(assert!\s*\()/, '$1// JOINT-PROBE: $2');
+      }
+    }
+
+    writeFileSync(srcFile, lines.join('\n'));
+
+    try {
+      execSync('sui move build 2>&1', { cwd: tempDir, timeout: 60000, stdio: 'pipe' });
+    } catch {
+      return null;
+    }
+
+    try {
+      execSync('sui move test 2>&1', { cwd: tempDir, timeout: 60000, stdio: 'pipe' });
+      return false;
+    } catch {
+      return true;
+    }
+  } finally {
+    try { rmSync(tempDir, { recursive: true, force: true }); } catch {}
+  }
+}
+
 // ── main ─────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
@@ -444,7 +480,14 @@ if (doMutate) {
     console.log(`Survived:  ${survived.length} (tests missed the bug ✗)`);
 
     if (survived.length > 0) {
-      const { reframed } = classifySurvivors(mutResults, allAsserts);
+      const { candidates } = identifyProbeCandidates(mutResults, allAsserts);
+
+      const probeOutcomes = candidates.map(c => {
+        const probed = runJointMutant(packageDir, sourceDir, c);
+        return { ...c, jointKilled: probed };
+      });
+
+      const reframed = finalizeEvidence(survived, probeOutcomes);
       console.log('\nSurviving mutations:');
       for (const s of reframed) {
         console.log(`  ✗ ${s.file}:${s.line} [${s.mutation}] SURVIVED — undecidable by this gate:`);
