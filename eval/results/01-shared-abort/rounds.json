@@ -1,0 +1,56 @@
+[
+  {
+    "round": 1,
+    "date": "2026-07-16",
+    "template": "main",
+    "layer1Only": false,
+    "asserts": 5,
+    "covered": "5/5",
+    "mutations": {
+      "applied": 10,
+      "killed": 10,
+      "survived": 0,
+      "score": 100
+    },
+    "gateExit": 0,
+    "findings": [],
+    "newFindings": [],
+    "dry": true
+  },
+  {
+    "round": 2,
+    "date": "2026-07-16",
+    "template": "main",
+    "layer1Only": false,
+    "asserts": 5,
+    "covered": "5/5",
+    "mutations": {
+      "applied": 10,
+      "killed": 10,
+      "survived": 0,
+      "score": 100
+    },
+    "gateExit": 0,
+    "findings": [],
+    "newFindings": [],
+    "dry": true
+  },
+  {
+    "round": 3,
+    "date": "2026-07-16",
+    "template": "varied",
+    "layer1Only": false,
+    "asserts": 5,
+    "covered": "5/5",
+    "mutations": {
+      "applied": 10,
+      "killed": 10,
+      "survived": 0,
+      "score": 100
+    },
+    "gateExit": 0,
+    "findings": [],
+    "newFindings": [],
+    "dry": true
+  }
+]
