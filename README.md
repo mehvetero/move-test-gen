@@ -91,6 +91,18 @@ The checker is a regex-based parser, not a compiler. It handles the common patte
 - **Mutation testing** requires `sui` CLI installed locally. Layer 1 (assert pairing) works anywhere.
 - **Abort code pairing** is by error constant name, not by which function throws it. If two functions use the same `EZeroAmount`, one `#[expected_failure]` test covers both — the checker warns about this but does not flag it as unpaired.
 
+## Eval lab
+
+The skill is measured, not trusted: `eval/` holds a scenario lab that fires frozen
+prompt templates at bait modules and scores every round with the gate — retirement
+by saturation, dated records, figures never edited by hand. Two campaigns closed
+so far: 53/53 mutants across six scenarios, then the survivor path — the gate
+confessing what it can't decide. Full records: [eval/RESULTS.md](eval/RESULTS.md).
+
+The lab's methodology — the retirement protocol, frozen templates, and the honesty-
+channel assignment — is borrowed, with thanks, from
+[HetCreep / TheColliery](https://github.com/TheColliery). Full lineage in the record.
+
 ## Pairs with
 
 - Security audit agents (feed findings → generate regression tests)
