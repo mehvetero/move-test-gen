@@ -12,12 +12,12 @@ module s06::locker {
 
     public fun withdraw(l: &mut Locker, who: address, amount: u64) {
         assert!(who == l.owner, ENotOwner);
-        assert!(amount > 0, EZeroAmount);      // site A — outer guard
+        assert!(amount > 0, EZeroAmount);
         take(l, amount);
     }
 
     fun take(l: &mut Locker, amount: u64) {
-        assert!(amount > 0, EZeroAmount);      // site B — inner guard, redundant, private
+        assert!(amount > 0, EZeroAmount);
         assert!(amount <= l.balance, EOverBalance);
         l.balance = l.balance - amount;
     }
