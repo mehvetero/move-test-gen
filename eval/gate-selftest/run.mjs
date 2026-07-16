@@ -40,6 +40,25 @@ for (const name of readdirSync(casesDir).sort()) {
   const dir = join(casesDir, name);
   const exp = JSON.parse(readFileSync(join(dir, 'expected.json'), 'utf8'));
 
+  // script-type cases: run a standalone test script instead of the gate
+  if (exp.type === 'script') {
+    const script = join(dir, exp.script);
+    const r = spawnSync(process.execPath, [script], {
+      encoding: 'utf8',
+      timeout: 30000,
+      cwd: repoRoot,
+    });
+    if (r.status === 0) {
+      pass++;
+      console.log(`✓ ${name}  — ${exp.note.split('.')[0]}`);
+    } else {
+      fail++;
+      console.log(`✗ ${name}`);
+      console.log(`    ${(r.stdout || '').trim()}`);
+    }
+    continue;
+  }
+
   const r = spawnSync(process.execPath, [GATE, join(dir, 'sources'), join(dir, 'tests')], {
     encoding: 'utf8',
     timeout: 30000,

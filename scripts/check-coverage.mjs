@@ -15,9 +15,11 @@
  */
 
 import { readFileSync, readdirSync, writeFileSync, mkdtempSync, cpSync, rmSync } from 'fs';
-import { join, relative, resolve } from 'path';
+import { join, relative, resolve, dirname } from 'path';
 import { execSync } from 'child_process';
 import { tmpdir } from 'os';
+import { fileURLToPath } from 'url';
+import { classifySurvivors } from './classify.mjs';
 
 // ── helpers ──────────────────────────────────────────────────────────
 
@@ -442,10 +444,14 @@ if (doMutate) {
     console.log(`Survived:  ${survived.length} (tests missed the bug ✗)`);
 
     if (survived.length > 0) {
-      console.log('\nSurviving mutations (test suite did NOT catch these):');
-      for (const s of survived) {
-        console.log(`  ✗ ${s.file}:${s.line} [${s.mutation}] ${s.desc}`);
-        console.log(`    ${s.original}`);
+      const { reframed } = classifySurvivors(mutResults, allAsserts);
+      console.log('\nSurviving mutations:');
+      for (const s of reframed) {
+        console.log(`  ✗ ${s.file}:${s.line} [${s.mutation}] SURVIVED — undecidable by this gate:`);
+        console.log(`    weak suite OR equivalent mutant. Judgment needed above this floor.`);
+        if (s.evidence) {
+          console.log(`    evidence: ${s.evidence}`);
+        }
       }
     }
 

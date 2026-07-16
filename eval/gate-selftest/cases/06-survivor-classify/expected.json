@@ -1,0 +1,5 @@
+{
+  "note": "classify pure function: redundant drop-assert pair → suspected-equivalent evidence; solo survivors → no evidence; zero survivors → empty",
+  "type": "script",
+  "script": "test.mjs"
+}
