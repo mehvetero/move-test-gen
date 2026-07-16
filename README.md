@@ -1,5 +1,7 @@
 # move-test-gen
 
+![gate-selftest](https://github.com/mehvetero/move-test-gen/actions/workflows/gate.yml/badge.svg)
+
 An [Agent Skill](https://github.com/agentskills/agentskills) that generates edge-case test suites for Sui Move functions.
 
 ## What it does
