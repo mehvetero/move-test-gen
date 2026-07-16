@@ -62,3 +62,42 @@ The lab's shape is borrowed, with thanks, from **HetCreep / TheColliery** ([gith
 - This record's format (Measured line, per-arm scorecards, a *what-this-did-NOT-prove* section) is modeled on the [CoalWash campaign records](https://github.com/TheColliery/.github/tree/main/benchmarks/CoalWash).
 
 The mutation-testing layer itself (`--mutate`) also began as their suggestion — credited in the main README since v1.
+
+
+---
+
+# Campaign 2 — the survivor path
+
+**Measured:** 2026-07-16 · repo state through `e8d463f` · gate: v1.1 (`bd521f9` → `6957be1`, survivor reframe + measured mutual-redundancy probe; `eval/gate-selftest` 6/6 green, CI-attested) · engine: agent VM · `sui 1.74.1-8fc60f1fa966` · pin `mainnet-v1.74.1` · generator model: `Claude 4.8` — a **fresh session on a different model family from the build agent (GPT-5.5)**, so generation was isolated from the answer key at both the context and the weight level · prompts: frozen templates v1.1.
+
+> **TL;DR:** the assignment was to exercise the one path campaign 1 never touched — a survivor — with a **true equivalent mutant**, unkillable by construction, where the pass condition flips: the gate must confess *undecidable* instead of blaming the suite. **Scenario 06 is RETIRED after 3 protocol rounds, all identical: 8 mutants = 6 killed + 2 planted equivalents, and the gate confessed both survivors with measured evidence in every round.** `planted_silent` (the gate-honesty failure bucket) stayed empty throughout. The floor admitted what it can't decide, enforced by code rather than prose.
+
+## The trap
+
+`locker.move`: a redundant guard pair — public `withdraw` checks `amount > 0`, then calls private `take`, which re-checks the same condition with the same abort code. Through the callable surface, each `drop-assert` on the pair is semantically invisible: exactly two equivalent mutants by construction. The other six mutants are honestly killable (verified in the design table in `eval/CAMPAIGN2.md`, reproduced in the field below).
+
+## Rounds
+
+| Round | Template | Covered | Mutants | Adjudicated equivalent | planted_silent | Verdict |
+|---|---|---|---|---|---|---|
+| 1 | main v1.1 | 4/4 | 6/8 killed | 2 (L15, L20 — with evidence) | 0 | DRY |
+| 2 | main v1.1 | 4/4 | 6/8 killed | 2 | 0 | DRY |
+| 3 | varied v1.1 | 4/4 | 6/8 killed | 2 | 0 | DRY → **RETIRED** |
+
+## How the honesty channel works (and what it deliberately does not do)
+
+- The gate no longer blames the suite for a survivor. It reports: *SURVIVED — undecidable by this gate: weak suite OR equivalent mutant. Judgment needed above this floor.*
+- For surviving `drop-assert` groups sharing an abort code, the gate runs one **higher-order joint mutant** (all guards in the group dropped at once). Evidence is stamped **only when the singles survive and the joint dies** — measured, never pattern-matched. In the field, the joint mutant died in all three rounds: the pair is individually removable, jointly load-bearing.
+- **The gate never reads the answer key.** `eval/keys/06-equivalent.json` is read by `eval/run.mjs` only, which adjudicates: planted + gate-confessed → `adjudicated_equivalent` (not a finding); planted but gate-silent → stays a finding (**a gate failure, not a suite failure** — this is the flipped pass condition); unplanted survivors stay findings even if the gate offers evidence.
+- The gate's raw numbers are untouched by all of this: mutation score stayed 75% and exit stayed 1 in every round. **Fail-closed is preserved** — the floor never greenlights what it can't decide; interpretation happens strictly above it.
+
+## What campaign 2 did NOT prove (pre-registered in eval/CAMPAIGN2.md §5)
+
+1. The gate is **not** an equivalence decider — the opposite is the point. Equivalence is undecidable; the channel is a confession, and the mutual-redundancy probe covers exactly **one equivalence class**. Equivalents outside the redundant-guard shape would receive the generic *undecidable* framing with no evidence.
+2. One scenario, N = 3 rounds, one planted class. The generator's quality was secondary here; the unit under test was the floor's honesty.
+3. Generator families now span two campaigns (GPT-5.5 in campaign 1, Claude 4.8 here) — noted as the **first entry of a second family**, not as a controlled comparison: the scenarios differ. A same-scenario cross-family campaign remains the next axis.
+4. Build-phase operator errors occurred twice (an answer-count typo in the problem sheet; trap-hint comments copied into sources) and were caught in review before any round ran. Recorded because the operator remains the noise floor.
+
+## Lineage
+
+The assignment — plant a true equivalent, flip the pass condition to a confession, move the judgment back above the floor — was set by **HetCreep / TheColliery** in conversation (2026-07-16), as was the framing it closes on: *"the floor admits what it can't decide; the judgment moves back to the stochastic side."* The campaign is that sentence, run three times.
