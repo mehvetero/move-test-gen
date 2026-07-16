@@ -126,6 +126,24 @@ function runGate(scenarioDir, { mutate }) {
   for (const m of out.matchAll(/^\s{2}✗\s+(\S+):(\d+)\s+\[([\w-]+)\]/gm)) {
     parsed.findings.push(`survived:${m[3]}@${normPath(m[1])}:${m[2]}`);
   }
+
+  // parse evidence lines: "    evidence: ... suspected-equivalent"
+  const evidenceFindings = new Set();
+  const lines = out.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (/evidence:.*suspected-equivalent/.test(lines[i])) {
+      // walk back to find the survivor line this evidence belongs to
+      for (let j = i - 1; j >= Math.max(0, i - 3); j--) {
+        const sm = lines[j].match(/✗\s+(\S+):(\d+)\s+\[([\w-]+)\]/);
+        if (sm) {
+          evidenceFindings.add(`survived:${sm[3]}@${normPath(sm[1])}:${sm[2]}`);
+          break;
+        }
+      }
+    }
+  }
+  parsed.evidenceFindings = evidenceFindings;
+
   return { parsed, out };
 }
 
@@ -194,8 +212,29 @@ function cmdScore(argv) {
     die('mutation could not run (see doctor) — a real round needs Layer 2; use --layer1-only only for smoke tests');
   }
 
+  // load answer key if present (run.mjs reads this, gate never does — blind-brief)
+  const keyPath = join(here, 'keys', `${scenName}.json`);
+  const keyData = existsSync(keyPath) ? JSON.parse(readFileSync(keyPath, 'utf8')) : {};
+  const planted = new Set(keyData.planted_equivalents || []);
+
+  // adjudicate: planted + gate evidence → adjudicated_equivalent (not a finding)
+  const adjudicated = [];
+  const plantedSilent = [];
+  const effectiveFindings = [];
+
+  for (const f of parsed.findings) {
+    if (planted.has(f) && parsed.evidenceFindings.has(f)) {
+      adjudicated.push(f);
+    } else if (planted.has(f) && !parsed.evidenceFindings.has(f)) {
+      plantedSilent.push(f);
+      effectiveFindings.push(f);
+    } else {
+      effectiveFindings.push(f);
+    }
+  }
+
   const known = new Set(rounds.flatMap((r) => r.findings));
-  const newFindings = parsed.findings.filter((f) => !known.has(f));
+  const newFindings = effectiveFindings.filter((f) => !known.has(f));
   const dry = newFindings.length === 0;
 
   // archive generated tests, then restore the scenario (rule: revert in the same round)
@@ -219,8 +258,10 @@ function cmdScore(argv) {
       survived: parsed.survived, score: parsed.score,
     },
     gateExit: parsed.exit,
-    findings: parsed.findings,
+    findings: effectiveFindings,
     newFindings,
+    adjudicated_equivalent: adjudicated,
+    planted_silent: plantedSilent,
     dry,
   };
   rounds.push(record);
@@ -230,21 +271,30 @@ function cmdScore(argv) {
   console.log(`\n${scenName} · round ${roundNo} (${template}${layer1Only ? ', layer1-only' : ''})`);
   console.log(`  covered ${parsed.covered} · gate exit ${parsed.exit}` +
     (layer1Only ? '' : ` · mutants ${parsed.killed}/${parsed.mutations} killed`));
-  console.log(`  findings ${parsed.findings.length} (new: ${newFindings.length}) → ${dry ? 'DRY' : 'NOT-DRY'}`);
+  console.log(`  findings ${effectiveFindings.length} (new: ${newFindings.length}) → ${dry ? 'DRY' : 'NOT-DRY'}`);
   for (const f of newFindings) console.log(`    + ${f}`);
+  if (adjudicated.length > 0) {
+    console.log(`  adjudicated equivalent: ${adjudicated.length} (planted + gate evidence → not findings)`);
+    for (const a of adjudicated) console.log(`    ≡ ${a}`);
+  }
+  if (plantedSilent.length > 0) {
+    console.log(`  ⚠ gate SILENT on planted equivalents (no evidence — gate honesty failure):`);
+    for (const p of plantedSilent) console.log(`    ✗ ${p}`);
+  }
   console.log(`  generated suite archived → ${relative(repoRoot, archiveDir)} · scenario restored`);
   console.log(`  verdict: ${v}${v === 'VARIED-SWEEP-REQUIRED' ? ' — next round: --template varied' : ''}`);
 }
 
 function cmdStatus() {
   if (!existsSync(RESULTS)) { console.log('no rounds recorded yet'); return; }
-  console.log('scenario · rounds · dry-streak · verdict · last covered · last mutants');
+  console.log('scenario · rounds · dry-streak · verdict · last covered · last mutants · adjudicated');
   for (const name of readdirSync(RESULTS).sort()) {
     const rounds = loadRounds(name);
     if (!rounds.length) continue;
     const last = rounds[rounds.length - 1];
     const mut = last.mutations ? `${last.mutations.killed}/${last.mutations.applied}` : 'L1-only';
-    console.log(`${name} · ${rounds.length} · ${trailingDry(rounds)} · ${verdict(rounds)} · ${last.covered} · ${mut}`);
+    const adj = (last.adjudicated_equivalent || []).length;
+    console.log(`${name} · ${rounds.length} · ${trailingDry(rounds)} · ${verdict(rounds)} · ${last.covered} · ${mut} · ${adj}`);
   }
 }
 
