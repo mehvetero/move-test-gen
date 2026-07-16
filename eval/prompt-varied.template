@@ -1,0 +1,9 @@
+Audit the module at sources/{{MODULE_FILE}} in this package.
+First enumerate every way it can abort — each assert!/abort site and its code.
+Then use the move-test-gen skill to write one #[expected_failure] test per abort
+path, plus boundary cases around every numeric comparison.
+
+Standing protections (never remove a line from this template — fill placeholders only):
+- write ALL tests to tests/generated_tests.move and nowhere else
+- do NOT modify anything under sources/
+- every #[expected_failure] test must name its abort_code
