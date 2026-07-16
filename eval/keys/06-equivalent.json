@@ -1,0 +1,6 @@
+{
+  "planted_equivalents": [
+    "survived:drop-assert@sources/locker.move:15",
+    "survived:drop-assert@sources/locker.move:20"
+  ]
+}
