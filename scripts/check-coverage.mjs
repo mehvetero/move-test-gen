@@ -221,7 +221,7 @@ const MUTATIONS = [
   },
 ];
 
-function runMutations(packageDir, sourceDir) {
+function runMutations(packageDir, sourceDir, scopeFilter) {
   // baseline: run tests on unmodified code first
   console.log('Running baseline test (unmodified code)...');
   let baselineMs;
@@ -252,7 +252,11 @@ function runMutations(packageDir, sourceDir) {
   cpSync(packageDir, tempDir, { recursive: true });
   const tempSourceDir = join(tempDir, relative(packageDir, sourceDir));
 
-  const sourceFiles = walkDir(tempSourceDir, '.move');
+  let sourceFiles = walkDir(tempSourceDir, '.move');
+  if (scopeFilter) {
+    sourceFiles = sourceFiles.filter(f => scopeFilter.some(s => f.endsWith(s)));
+    console.log(`Scope: mutating ${sourceFiles.length} file(s) (${scopeFilter.join(', ')})\n`);
+  }
   const results = [];
 
   const cleanup = () => {
@@ -376,12 +380,14 @@ function runJointMutant(packageDir, sourceDir, candidate) {
 
 const args = process.argv.slice(2);
 if (args.length < 2) {
-  console.log('Usage: node check-coverage.mjs <sources-dir> <tests-dir> [--mutate]');
+  console.log('Usage: node check-coverage.mjs <sources-dir> <tests-dir> [--mutate] [--scope file1.move,file2.move]');
   process.exit(1);
 }
 
 const [sourceDir, testDir] = args.map(a => resolve(a));
 const doMutate = args.includes('--mutate');
+const scopeIdx = args.indexOf('--scope');
+const scopeFiles = scopeIdx >= 0 ? args[scopeIdx + 1].split(',').map(f => f.trim()) : null;
 let mutationWeak = false;
 let mutationSkipped = false;
 
@@ -463,7 +469,7 @@ if (doMutate) {
 
   // resolve package root (parent of sources dir)
   const packageDir = resolve(sourceDir, '..');
-  const mutResults = runMutations(packageDir, sourceDir);
+  const mutResults = runMutations(packageDir, sourceDir, scopeFiles);
 
   if (mutResults === null) {
     console.log('Mutation testing skipped (see errors above).\n');

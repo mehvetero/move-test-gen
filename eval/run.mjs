@@ -97,11 +97,12 @@ function verdict(rounds) {
 
 // ── gate invocation + parsing ────────────────────────────────────────
 
-function runGate(scenarioDir, { mutate }) {
+function runGate(scenarioDir, { mutate, scope }) {
   const args = [GATE,
     join(relative(repoRoot, scenarioDir), 'sources'),
     join(relative(repoRoot, scenarioDir), 'tests')];
   if (mutate) args.push('--mutate');
+  if (scope) { args.push('--scope'); args.push(scope); }
   const r = spawnSync(process.execPath, args, {
     cwd: repoRoot, encoding: 'utf8', timeout: 30 * 60 * 1000,
   });
@@ -203,7 +204,8 @@ function cmdScore(argv) {
     die(`${scenName} has 2 consecutive dry rounds — this round must use --template varied (prompt-varied.template)`);
   }
 
-  const { parsed } = runGate(scenarioDir, { mutate: !layer1Only });
+  const scope = expected.target || null;
+  const { parsed } = runGate(scenarioDir, { mutate: !layer1Only, scope });
 
   if (expected.asserts !== undefined && parsed.asserts !== expected.asserts) {
     die(`source integrity: gate found ${parsed.asserts} sites, expected.json says ${expected.asserts} — scenario sources drifted or got contaminated; restore before scoring`);
