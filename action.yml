@@ -1,7 +1,7 @@
 name: 'move-test-gen coverage check'
 description: 'Assert pairing + mutation testing for Sui Move packages'
 branding:
-  icon: 'shield'
+  icon: 'eye'
   color: 'purple'
 inputs:
   sources:
