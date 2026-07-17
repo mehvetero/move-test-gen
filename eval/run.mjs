@@ -184,6 +184,8 @@ function cmdScore(argv) {
     : 'main';
   if (!['main', 'varied'].includes(template)) die(`unknown template "${template}"`);
   const layer1Only = argv.includes('--layer1-only');
+  const signedIdx = argv.indexOf('--signed');
+  const signedHavingLearned = signedIdx >= 0 ? argv[signedIdx + 1] : null;
 
   const scenName = basename(scenarioDir);
   const testsDir = join(scenarioDir, 'tests');
@@ -264,6 +266,7 @@ function cmdScore(argv) {
     newFindings,
     adjudicated_equivalent: adjudicated,
     planted_silent: plantedSilent,
+    signed_having_learned: signedHavingLearned,
     dry,
   };
   rounds.push(record);
@@ -307,6 +310,6 @@ if (cmd === 'doctor') cmdDoctor();
 else if (cmd === 'score') cmdScore(rest);
 else if (cmd === 'status') cmdStatus();
 else {
-  console.log('usage: node eval/run.mjs <doctor | score <scenario-dir> [--template main|varied] [--layer1-only] | status>');
+  console.log('usage: node eval/run.mjs <doctor | score <scenario-dir> [--template main|varied] [--layer1-only] [--signed "what qualified the signer"] | status>');
   process.exit(2);
 }
