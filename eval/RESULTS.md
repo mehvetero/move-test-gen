@@ -101,3 +101,38 @@ The mutation-testing layer itself (`--mutate`) also began as their suggestion �
 ## Lineage
 
 The assignment — plant a true equivalent, flip the pass condition to a confession, move the judgment back above the floor — was set by **HetCreep / TheColliery** in conversation (2026-07-16), as was the framing it closes on: *"the floor admits what it can't decide; the judgment moves back to the stochastic side."* The campaign is that sentence, run three times.
+
+
+---
+
+# Campaign 3 — real protocol
+
+**Measured:** 2026-07-17 · repo state through `3a0890e` · gate: v1.1 with `--scope` filter (`eval/gate-selftest` 7/7 green, CI-attested) · engine: agent VM · generator model: `GPT-5.5` (all three scenarios, same session) · `sui 1.74.1-8fc60f1fa966` · pin `mainnet-v1.74.1` · prompts: frozen templates v1.1 · source: [Interest Protocol / SuiTears](https://github.com/interest-protocol/suitears) (commit HEAD at time of clone, 2026-07-17).
+
+> **TL;DR:** the "fixture-scale" self-disclosure from campaigns 1–2 is retired. Three scenarios ran against production SuiTears modules — an ERC-4626 vault (fund.move, 153 lines), a multi-feed oracle with hot-potato + Clock + OwnerCap (oracle.move, 477 lines), and a staking farm with no test constructors (farm.move, 500+ lines). **fund: target mutants 3/3 killed every round. oracle: 19/22 → 21/22 (self-improvement across generations), with a defense-in-depth survivor confirmed as the first naturally occurring instance of the equivalent-mutant class from campaign 2. farm: mutation could not run (baseline fails — the module lacks test_only constructors, making its abort paths untestable without upstream changes). All three retired by protocol.**
+
+## Scenarios
+
+| # | Module | Type | Rounds | Target mutants | Layer 1 | Notable |
+|---|---|---|---|---|---|---|
+| 07 | fund.move | pure arithmetic vault | 4 | **3/3** every round | 0/0 (no asserts) | 56 dep-library survivors: no counterexample in 4 generations |
+| 08 | oracle.move | hot-potato + Clock + OwnerCap | 4 | R1: **19/22** → R2–4: **21/22** | 10/95† | R2 cracked two complex setups (dual-oracle ID mismatch + unregistered feed). 1 survivor = defense-in-depth (EOracleMustHaveFeeds) |
+| 09 | farm.move | staking/rewards, no test helpers | 5 | **null/null** | 0/95† | unmeasurable — infrastructure gap (see below) |
+
+† Layer 1 denominator is the full package (95 asserts across all SuiTears modules). The `--scope` filter restricts mutation to the target file only; Layer 1 still scans all sources.
+
+## Notable findings
+
+**Scenario 08 — self-improvement across generations.** R1 generated 19/22 with two gaps documented as coverage-gap comments ("two Oracle instances needed", "unregistered feed setup complex"). R2 independently solved both: created dual-oracle instances for `ERequestAndOracleIdMismatch` and introduced an unregistered feed type for `EInvalidReportFeeds`. This progression — skill identifying its own gaps, then closing them in the next generation — is recorded in the archived suites.
+
+**Scenario 08 — naturally occurring equivalent mutant.** The surviving `EOracleMustHaveFeeds` (L147) is a defense-in-depth guard: `new()` constructs the Oracle with a non-empty feed set via `vectors::to_vec_set`, so `request()`'s emptiness check can never fire through the public API. This is structurally identical to campaign 2's planted equivalent (redundant guard pair where the outer gate prevents the inner from ever triggering) — but here it was not planted, it exists in shipped production code. The gate does not flag this as suspected-equivalent because the mutual-redundancy probe only covers same-file drop-assert pairs sharing an abort code; cross-function redundancy across the call graph is outside the probe's design. This survivor was classified by reviewer judgment, not by gate evidence — honest scope.
+
+**Scenario 09 — unmeasurable, not failed.** Farm requires `CoinMetadata<StakeCoin>`, constructible only via `coin::create_currency` with a one-time witness — no `#[test_only]` constructor exists. Every abort path (5 sites) sits behind this gate. The skill correctly identified the limitation, documented it in generated comments, and produced only the tests it could compile (cap lifecycle + clock conversion). This is a testability finding about the target code, not a skill failure: *the module ships untestable without upstream changes*. A future SuiTears issue is warranted.
+
+## What campaign 3 did NOT prove
+
+1. **One protocol.** All three modules are from the same codebase (SuiTears). A second protocol (Scallop was attempted, build-dependency chain blocked it in this session) remains the next axis for style-diversity.
+2. **Training-data contamination is uncontrollable.** SuiTears is a public, starred repository. The generator may have seen it during training. This is noted, not fixable — `target protocols are public code and may be present in the generator's training data.`
+3. **Layer 1 denominator is the full package,** not the target module. The 10/95 figure for oracle reflects that only oracle's 11 abort paths are the skill's homework; the other 84 are dependency asserts. A target-scoped Layer 1 mode does not exist yet.
+4. **Cross-function equivalent detection** is outside the gate's probe design. The oracle L147 survivor was classified by human review, not by measured evidence.
+5. **Scenario 09's "null" is an infrastructure measurement,** not a skill measurement. The verdict is RETIRED by protocol (3 consecutive dry after varied sweep), but the underlying data is "could not run" — a new verdict class (`unmeasurable`) that the protocol does not yet formally distinguish from "measured and saturated."

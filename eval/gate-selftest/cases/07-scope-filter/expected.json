@@ -1,0 +1,5 @@
+{
+  "note": "scope filter: mutations only applied to target files, non-target files untouched",
+  "type": "script",
+  "script": "test.mjs"
+}
