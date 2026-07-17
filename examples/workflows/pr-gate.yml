@@ -1,0 +1,13 @@
+# Add to .github/workflows/move-coverage.yml in your Move repo
+# Layer 1 only — no sui needed, runs in seconds
+name: move-coverage
+on: [pull_request]
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mehvetero/move-test-gen@main
+        with:
+          sources: sources
+          tests: tests

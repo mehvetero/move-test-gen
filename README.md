@@ -101,6 +101,34 @@ The checker is a regex-based parser, not a compiler. It handles the common patte
 - **Mutation testing** requires `sui` CLI installed locally. Layer 1 (assert pairing) works anywhere.
 - **Abort code pairing** is by error constant name, not by which function throws it. If two functions use the same `EZeroAmount`, one `#[expected_failure]` test covers both — the checker warns about this but does not flag it as unpaired.
 
+## CI integration
+
+Use as a GitHub Action in any Sui Move repo — no install, no dependencies beyond Node:
+
+```yaml
+# .github/workflows/move-coverage.yml — runs on every PR
+name: move-coverage
+on: [pull_request]
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mehvetero/move-test-gen@main
+        with:
+          sources: sources
+          tests: tests
+```
+
+Layer 1 (assert pairing) runs in seconds with zero dependencies. For mutation testing, add `mutate: 'true'` and install `sui` — see [examples/workflows/nightly-mutation.yml](examples/workflows/nightly-mutation.yml) for a nightly schedule.
+
+Or run the checker standalone:
+
+```bash
+npx mehvetero/move-test-gen sources tests
+npx mehvetero/move-test-gen sources tests --mutate
+```
+
 ## Eval lab
 
 The skill is measured, not trusted: `eval/` holds a scenario lab that fires frozen

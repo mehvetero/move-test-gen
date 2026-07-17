@@ -1,0 +1,42 @@
+name: 'move-test-gen coverage check'
+description: 'Assert pairing + mutation testing for Sui Move packages'
+inputs:
+  sources:
+    description: 'Path to Move sources directory'
+    required: true
+    default: 'sources'
+  tests:
+    description: 'Path to Move tests directory'
+    required: true
+    default: 'tests'
+  mutate:
+    description: 'Run mutation testing (requires sui CLI on PATH)'
+    required: false
+    default: 'false'
+  scope:
+    description: 'Comma-separated list of files to mutate (target only)'
+    required: false
+    default: ''
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout move-test-gen
+      uses: actions/checkout@v4
+      with:
+        repository: mehvetero/move-test-gen
+        path: .move-test-gen
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+    - name: Run coverage check
+      shell: bash
+      run: |
+        ARGS="${{ inputs.sources }} ${{ inputs.tests }}"
+        if [ "${{ inputs.mutate }}" = "true" ]; then
+          ARGS="$ARGS --mutate"
+        fi
+        if [ -n "${{ inputs.scope }}" ]; then
+          ARGS="$ARGS --scope ${{ inputs.scope }}"
+        fi
+        node .move-test-gen/scripts/check-coverage.mjs $ARGS

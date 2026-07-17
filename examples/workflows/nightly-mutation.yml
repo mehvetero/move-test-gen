@@ -1,0 +1,21 @@
+# Add to .github/workflows/move-mutation.yml in your Move repo
+# Layer 1 + Layer 2 — requires sui CLI, runs nightly
+name: move-mutation
+on:
+  schedule:
+    - cron: '0 3 * * *'  # 3 AM UTC daily
+  workflow_dispatch:       # manual trigger
+jobs:
+  mutation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install sui CLI
+        run: |
+          curl -fsSL https://sui.io/install.sh | sh
+          echo "$HOME/.sui/bin" >> $GITHUB_PATH
+      - uses: mehvetero/move-test-gen@main
+        with:
+          sources: sources
+          tests: tests
+          mutate: 'true'

@@ -1,0 +1,14 @@
+{
+  "name": "move-test-gen",
+  "version": "1.1.0",
+  "description": "Coverage checker for Sui Move test suites — assert pairing + mutation testing",
+  "type": "module",
+  "bin": {
+    "move-test-gen": "scripts/check-coverage.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mehvetero/move-test-gen"
+  },
+  "license": "MIT"
+}
