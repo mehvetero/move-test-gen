@@ -1,0 +1,11 @@
+[package]
+name = "SuiTears"
+version = "0.0.2"
+edition = "2024.beta"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.74.1" }
+
+[addresses]
+suitears = "0x0"
+sui = "0x2"
