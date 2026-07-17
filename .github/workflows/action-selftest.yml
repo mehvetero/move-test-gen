@@ -1,7 +1,10 @@
 name: action-selftest
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
 jobs:
-  dogfood:
+  layer1:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -9,3 +12,19 @@ jobs:
         with:
           sources: eval/gate-selftest/cases/04-shared-code-warning/sources
           tests: eval/gate-selftest/cases/04-shared-code-warning/tests
+  layer2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install sui CLI
+        run: |
+          curl -fsSL -o sui.tgz https://github.com/MystenLabs/sui/releases/download/mainnet-v1.74.1/sui-mainnet-v1.74.1-ubuntu-x86_64.tgz
+          tar xzf sui.tgz
+          sudo mv sui /usr/local/bin/
+          rm sui.tgz
+          sui --version
+      - uses: ./
+        with:
+          sources: examples/sources
+          tests: examples/tests
+          mutate: 'true'

@@ -2,6 +2,8 @@
 
 ![gate-selftest](https://github.com/mehvetero/move-test-gen/actions/workflows/gate.yml/badge.svg)
 
+> **Using this as a GitHub Action?** Jump to [CI integration](#ci-integration).
+
 An [Agent Skill](https://github.com/agentskills/agentskills) that generates edge-case test suites for Sui Move functions.
 
 ## What it does
