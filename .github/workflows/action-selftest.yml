@@ -1,0 +1,11 @@
+name: action-selftest
+on: [push, pull_request]
+jobs:
+  dogfood:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          sources: eval/gate-selftest/cases/04-shared-code-warning/sources
+          tests: eval/gate-selftest/cases/04-shared-code-warning/tests

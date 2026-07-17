@@ -12,9 +12,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install sui CLI
         run: |
-          curl -fsSL https://sui.io/install.sh | sh
-          echo "$HOME/.sui/bin" >> $GITHUB_PATH
-      - uses: mehvetero/move-test-gen@main
+          curl -fsSL -o sui.tgz https://github.com/MystenLabs/sui/releases/download/mainnet-v1.74.1/sui-mainnet-v1.74.1-ubuntu-x86_64.tgz
+          tar xzf sui.tgz
+          sudo mv sui /usr/local/bin/
+          rm sui.tgz
+          sui --version
+      - uses: mehvetero/move-test-gen@v1.1.0
         with:
           sources: sources
           tests: tests

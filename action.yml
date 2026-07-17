@@ -20,11 +20,6 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Checkout move-test-gen
-      uses: actions/checkout@v4
-      with:
-        repository: mehvetero/move-test-gen
-        path: .move-test-gen
     - name: Setup Node
       uses: actions/setup-node@v4
       with:
@@ -32,11 +27,12 @@ runs:
     - name: Run coverage check
       shell: bash
       run: |
+        GATE="${GITHUB_ACTION_PATH}/scripts/check-coverage.mjs"
         ARGS="${{ inputs.sources }} ${{ inputs.tests }}"
         if [ "${{ inputs.mutate }}" = "true" ]; then
           ARGS="$ARGS --mutate"
         fi
         if [ -n "${{ inputs.scope }}" ]; then
-          ARGS="$ARGS --scope ${{ inputs.scope }}"
+          ARGS="$ARGS --scope '${{ inputs.scope }}'"
         fi
-        node .move-test-gen/scripts/check-coverage.mjs $ARGS
+        node "$GATE" $ARGS

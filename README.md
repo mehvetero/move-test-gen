@@ -114,7 +114,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mehvetero/move-test-gen@main
+      - uses: mehvetero/move-test-gen@v1.1.0
         with:
           sources: sources
           tests: tests
