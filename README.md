@@ -18,7 +18,17 @@ Output is a `.move` test file targeting `sui move test`. The example in `example
 
 ## Usage
 
-Install the skill in your Claude Code environment:
+Install via the skills CLI:
+
+```
+npx skills add mehvetero/move-test-gen
+```
+
+> **Windows note:** if PowerShell blocks `npx` with an execution-policy error,
+> run `npx.cmd skills add mehvetero/move-test-gen` instead (stock PowerShell
+> default, not a skill issue).
+
+Or manually place it in your Claude Code environment:
 
 ```
 skills/
