@@ -227,13 +227,20 @@ function runMutations(packageDir, sourceDir, scopeFilter) {
   let baselineMs;
   try {
     const start = Date.now();
-    execSync('sui move test 2>&1', {
+    const baselineOut = execSync('sui move test 2>&1', {
       cwd: packageDir,
       timeout: 120000,
-      stdio: 'pipe',
+      encoding: 'utf8',
     });
     baselineMs = Date.now() - start;
-    console.log(`Baseline: PASS ✓ (${Math.round(baselineMs / 1000)}s)\n`);
+    const testCountMatch = baselineOut.match(/Total tests:\s*(\d+)/);
+    const testCount = testCountMatch ? Number(testCountMatch[1]) : null;
+    if (testCount === 0) {
+      console.log('WARNING: baseline ran 0 tests — this is an empty check, not a pass.');
+      console.log('Generate tests before running mutation testing.\n');
+      return null;
+    }
+    console.log(`Baseline: PASS ✓ (${testCount} tests, ${Math.round(baselineMs / 1000)}s)\n`);
   } catch (e) {
     const output = e.stdout?.toString() || e.stderr?.toString() || '';
     if (output.includes('not found') || output.includes('No such file') || output.includes('not recognized')) {
