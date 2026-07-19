@@ -1,0 +1,5 @@
+{
+  "note": "testability pre-flight: modules with CoinMetadata + no test_only warn, modules with constructors pass",
+  "type": "script",
+  "script": "test.mjs"
+}
