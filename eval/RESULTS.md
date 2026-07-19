@@ -137,3 +137,45 @@ The assignment — plant a true equivalent, flip the pass condition to a confess
 4. **Cross-function equivalent detection** is outside the gate's probe design. The oracle L147 survivor was classified by human review, not by measured evidence.
 5. **Scenario 09's "null" is an infrastructure measurement,** not a skill measurement. The verdict is RETIRED by protocol (3 consecutive dry after varied sweep), but the underlying data is "could not run" — a new verdict class (`unmeasurable`) that the protocol does not yet formally distinguish from "measured and saturated."
 6. **All rounds share one session.** Later generations had earlier outputs in context. Saturation claims (fund's 4-round plateau) and score-improvement claims (oracle R1→R2) are correlated observations, not independent samples. The "4 independent generations" language from the commit message does not apply — "4 generations, same context" is the accurate description.
+
+
+---
+
+# Campaign 4 — Layer 1 real-protocol validation + cross-team diversity
+
+**Measured:** 2026-07-19 · repo state through `38da391` · gate: v1.1 with `--scope` filter (`eval/gate-selftest` 7/7 green, CI-attested) · engine: agent VM · generator model: `GPT-5.5` (all rounds, same session) · `sui 1.74.1-8fc60f1fa966` · pin `mainnet-v1.74.1` · prompts: frozen templates v1.1 · sources: [Interest Protocol / SuiTears](https://github.com/interest-protocol/suitears) at `f39693a00e23` + [CetusProtocol / IntegerMate](https://github.com/CetusProtocol/integer-mate) HEAD at time of clone.
+
+> **TL;DR:** Layer 1 (assert pairing) validated on real protocol code for the first time — **14/14 on fixed_point64 (4 rounds) and 15/15 on i128 (5 rounds), never failed across 9 rounds total.** Cross-team diversity achieved: SuiTears (Interest Protocol) + IntegerMate (Cetus) — two different teams, two different module styles. Layer 2 peak: 95% on fixed_point64, 87.5% on i128. Session discipline was NOT enforced — all rounds ran in one session (same as campaign 3). The "independent measurement" goal remains unachieved; this campaign validates coverage capability, not generation independence.
+
+## Scenarios
+
+| # | Module | Source | Rounds | Layer 1 | Layer 2 peak | Layer 2 final | Survivors |
+|---|---|---|---|---|---|---|---|
+| 10 | fixed_point64.move (477 lines) | Interest Protocol / SuiTears | 4 | **14/14** every round | 39/41 (R2, 95%) | 34/41 (R4) | 7 flip-comparisons in internal helper functions |
+| 11 | i128.move (233 lines) | CetusProtocol / IntegerMate | 5 | **15/15** every round | 14/16 (R5, 87.5%) | 14/16 | 2 flip-eq in mul/div sign logic |
+
+## Notable observations
+
+**Layer 1 is now field-proven.** Campaign 3's oracle achieved 10/95 (but the denominator was the full package — only 11 were the target's homework). Campaign 4's scenarios use `--scope` + matching denominator: 14 asserts in fixed_point64, 15 in i128 (5+5+5 across i128/i64/i32). Every abort path got a matching `#[expected_failure]` test in every round. The skill never missed an abort site on these modules.
+
+**Layer 2 variance across suites.** fixed_point64 scored 27→39→37→34 across four rounds. This is NOT degradation — each round generates a different suite with different emphasis. R2 happened to include comparison/rounding functional tests that killed 12 survivors; R3/R4 emphasized other aspects. The variance is a property of stochastic generation, not a quality regression. The peak (39/41) represents the best single suite; the floor (27/41) represents the minimum.
+
+**Score improvement R1→R2 is correlated, not independent.** R2 had R1's output in context (same session). The improvement from 66% to 95% on fixed_point64 reflects the generator seeing R1's gaps and closing them — useful as a capability demonstration, but not as an independence claim.
+
+## What campaign 4 did NOT prove
+
+1. **Session independence.** All rounds ran in one session. The "fresh session per round" convention (codified after campaign 3) was not enforced. R1→R2 improvements are correlated observations. A same-scenario, fresh-session campaign remains the next axis for independence claims.
+2. **Layer 2 ceiling.** The survivors (7 in fixed_point64, 2 in i128) are comparison flips in internal helper logic — some may be equivalent mutants (defense-in-depth patterns), others may be genuinely weak coverage. Classification was not attempted this campaign.
+3. **One generator model.** GPT-5.5 only. Cross-family comparison (GPT-5.5 vs Claude on the same scenario) was planned but not executed — deferred to campaign 5.
+4. **Denominator note for scenario 11:** i128.move has 5 asserts, but the gate sees 15 (i128+i64+i32 combined, since all three are in sources/). The 15/15 Layer 1 score means all three dependency modules' abort paths are also covered — a bonus, not the target.
+
+## Cumulative
+
+| Campaign | Scenarios | Rounds | Layer 1 | Layer 2 | Key achievement |
+|---|---|---|---|---|---|
+| 1 (fixtures) | 00–05 | 18 | all covered | 53/53 killed | baseline |
+| 2 (honesty) | 06 | 3 | 4/4 | 6/8 + 2 adjudicated | gate confession |
+| 3 (real protocol) | 07–09 | 13 | 0/0, 10/95, 0/95 | fund 3/3, oracle 21/22, farm null | first real code |
+| 4 (L1 validation) | 10–11 | 9 | **14/14, 15/15** | peak 95%, 87.5% | Layer 1 field-proven + cross-team |
+
+Total: 12 scenarios, 43 rounds, all RETIRED.
