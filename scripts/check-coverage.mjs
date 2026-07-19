@@ -19,6 +19,7 @@ import { join, relative, resolve } from 'path';
 import { execSync } from 'child_process';
 import { tmpdir } from 'os';
 import { identifyProbeCandidates, finalizeEvidence } from './classify.mjs';
+import { filterByScope } from './scope-filter.mjs';
 
 // ── helpers ──────────────────────────────────────────────────────────
 
@@ -261,7 +262,7 @@ function runMutations(packageDir, sourceDir, scopeFilter) {
 
   let sourceFiles = walkDir(tempSourceDir, '.move');
   if (scopeFilter) {
-    sourceFiles = sourceFiles.filter(f => scopeFilter.some(s => f.endsWith(s)));
+    sourceFiles = filterByScope(sourceFiles, scopeFilter);
     console.log(`Scope: mutating ${sourceFiles.length} file(s) (${scopeFilter.join(', ')})\n`);
   }
   const results = [];

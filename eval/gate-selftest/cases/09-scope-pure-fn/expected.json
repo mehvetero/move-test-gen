@@ -1,0 +1,5 @@
+{
+  "note": "scope filter pure function: only files ending with scope entries pass through",
+  "type": "script",
+  "script": "test.mjs"
+}
