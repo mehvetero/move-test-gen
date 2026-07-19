@@ -430,15 +430,24 @@ if (unscopedFailures.length > 0) {
   console.log('  These catch any abort but are not counted toward specific assert coverage.\n');
 }
 
+// scope Layer 1 to target files if --scope is set
+let targetAsserts = allAsserts;
+if (scopeFiles) {
+  targetAsserts = allAsserts.filter(a => scopeFiles.some(s => a.file.endsWith(s)));
+  if (targetAsserts.length !== allAsserts.length) {
+    console.log(`Scope (Layer 1): ${targetAsserts.length} asserts in target, ${allAsserts.length - targetAsserts.length} in dependencies (not scored)\n`);
+  }
+}
+
 // pair only with scoped failures
 const failureCodes = new Set(scopedFailures.map(f => f.code));
 
-const unpaired = allAsserts.filter(a => !failureCodes.has(a.code));
-const covered = allAsserts.filter(a => failureCodes.has(a.code));
+const unpaired = targetAsserts.filter(a => !failureCodes.has(a.code));
+const covered = targetAsserts.filter(a => failureCodes.has(a.code));
 
 console.log('--- Coverage ---');
-console.log(`Covered:  ${covered.length}/${allAsserts.length}`);
-console.log(`Unpaired: ${unpaired.length}/${allAsserts.length}`);
+console.log(`Covered:  ${covered.length}/${targetAsserts.length}`);
+console.log(`Unpaired: ${unpaired.length}/${targetAsserts.length}`);
 
 if (unpaired.length > 0) {
   console.log('\nUnpaired asserts (no matching expected_failure test):');
@@ -524,10 +533,10 @@ if (doMutate) {
 
 // summary
 console.log('\n--- Summary ---');
-const coverageScore = allAsserts.length > 0
-  ? Math.round((covered.length / allAsserts.length) * 100)
+const coverageScore = targetAsserts.length > 0
+  ? Math.round((covered.length / targetAsserts.length) * 100)
   : 100;
-console.log(`Assert coverage: ${coverageScore}% (${covered.length}/${allAsserts.length})`);
+console.log(`Assert coverage: ${coverageScore}% (${covered.length}/${targetAsserts.length})`);
 if (unpaired.length > 0) {
   console.log(`⚠ ${unpaired.length} assert(s) have no expected_failure test`);
   process.exit(1);
