@@ -1,0 +1,5 @@
+{
+  "note": "baseline 0-tests warning: --mutate on empty tests dir must warn and exit 1, not silently pass",
+  "type": "script",
+  "script": "test.mjs"
+}
