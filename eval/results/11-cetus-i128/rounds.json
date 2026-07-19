@@ -1,0 +1,135 @@
+[
+  {
+    "round": 1,
+    "date": "2026-07-19",
+    "template": "main",
+    "layer1Only": false,
+    "asserts": 15,
+    "covered": "15/15",
+    "mutations": {
+      "applied": 16,
+      "killed": 12,
+      "survived": 4,
+      "score": 75
+    },
+    "gateExit": 1,
+    "findings": [
+      "survived:flip-gt@sources/i128.move:186",
+      "survived:flip-eq@sources/i128.move:183",
+      "survived:flip-eq@sources/i128.move:194",
+      "survived:flip-neq@sources/i128.move:76"
+    ],
+    "newFindings": [
+      "survived:flip-gt@sources/i128.move:186",
+      "survived:flip-eq@sources/i128.move:183",
+      "survived:flip-eq@sources/i128.move:194",
+      "survived:flip-neq@sources/i128.move:76"
+    ],
+    "adjudicated_equivalent": [],
+    "planted_silent": [],
+    "signed_having_learned": null,
+    "dry": false
+  },
+  {
+    "round": 2,
+    "date": "2026-07-19",
+    "template": "main",
+    "layer1Only": false,
+    "asserts": 15,
+    "covered": "15/15",
+    "mutations": {
+      "applied": 16,
+      "killed": 12,
+      "survived": 4,
+      "score": 75
+    },
+    "gateExit": 1,
+    "findings": [
+      "survived:flip-gt@sources/i128.move:186",
+      "survived:flip-eq@sources/i128.move:140",
+      "survived:flip-eq@sources/i128.move:183",
+      "survived:flip-eq@sources/i128.move:194"
+    ],
+    "newFindings": [
+      "survived:flip-eq@sources/i128.move:140"
+    ],
+    "adjudicated_equivalent": [],
+    "planted_silent": [],
+    "signed_having_learned": null,
+    "dry": false
+  },
+  {
+    "round": 3,
+    "date": "2026-07-19",
+    "template": "main",
+    "layer1Only": false,
+    "asserts": 15,
+    "covered": "15/15",
+    "mutations": {
+      "applied": 16,
+      "killed": 13,
+      "survived": 3,
+      "score": 81
+    },
+    "gateExit": 1,
+    "findings": [
+      "survived:flip-eq@sources/i128.move:140",
+      "survived:flip-eq@sources/i128.move:194",
+      "survived:flip-neq@sources/i128.move:76"
+    ],
+    "newFindings": [],
+    "adjudicated_equivalent": [],
+    "planted_silent": [],
+    "signed_having_learned": null,
+    "dry": true
+  },
+  {
+    "round": 4,
+    "date": "2026-07-19",
+    "template": "main",
+    "layer1Only": false,
+    "asserts": 15,
+    "covered": "15/15",
+    "mutations": {
+      "applied": 16,
+      "killed": 13,
+      "survived": 3,
+      "score": 81
+    },
+    "gateExit": 1,
+    "findings": [
+      "survived:flip-eq@sources/i128.move:140",
+      "survived:flip-eq@sources/i128.move:194",
+      "survived:flip-neq@sources/i128.move:76"
+    ],
+    "newFindings": [],
+    "adjudicated_equivalent": [],
+    "planted_silent": [],
+    "signed_having_learned": null,
+    "dry": true
+  },
+  {
+    "round": 5,
+    "date": "2026-07-19",
+    "template": "varied",
+    "layer1Only": false,
+    "asserts": 15,
+    "covered": "15/15",
+    "mutations": {
+      "applied": 16,
+      "killed": 14,
+      "survived": 2,
+      "score": 88
+    },
+    "gateExit": 1,
+    "findings": [
+      "survived:flip-eq@sources/i128.move:140",
+      "survived:flip-neq@sources/i128.move:76"
+    ],
+    "newFindings": [],
+    "adjudicated_equivalent": [],
+    "planted_silent": [],
+    "signed_having_learned": null,
+    "dry": true
+  }
+]

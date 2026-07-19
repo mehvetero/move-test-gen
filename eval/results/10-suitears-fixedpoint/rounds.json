@@ -1,0 +1,132 @@
+[
+  {
+    "round": 1,
+    "date": "2026-07-19",
+    "template": "main",
+    "layer1Only": false,
+    "asserts": 14,
+    "covered": "14/14",
+    "mutations": {
+      "applied": 41,
+      "killed": 27,
+      "survived": 14,
+      "score": 66
+    },
+    "gateExit": 1,
+    "findings": [
+      "survived:flip-lt@sources/fixed_point64.move:114",
+      "survived:flip-lt@sources/fixed_point64.move:177",
+      "survived:flip-lt@sources/fixed_point64.move:232",
+      "survived:flip-gt@sources/fixed_point64.move:188",
+      "survived:flip-gt@sources/fixed_point64.move:221",
+      "survived:flip-lte@sources/fixed_point64.move:101",
+      "survived:flip-lte@sources/fixed_point64.move:199",
+      "survived:flip-gte@sources/fixed_point64.move:210",
+      "survived:flip-eq@sources/fixed_point64.move:139",
+      "survived:flip-eq@sources/fixed_point64.move:155",
+      "survived:flip-eq@sources/fixed_point64.move:166",
+      "survived:flip-neq@sources/fixed_point64.move:468",
+      "survived:flip-neq@sources/fixed_point64.move:469",
+      "survived:drop-assert@sources/fixed_point64.move:101"
+    ],
+    "newFindings": [
+      "survived:flip-lt@sources/fixed_point64.move:114",
+      "survived:flip-lt@sources/fixed_point64.move:177",
+      "survived:flip-lt@sources/fixed_point64.move:232",
+      "survived:flip-gt@sources/fixed_point64.move:188",
+      "survived:flip-gt@sources/fixed_point64.move:221",
+      "survived:flip-lte@sources/fixed_point64.move:101",
+      "survived:flip-lte@sources/fixed_point64.move:199",
+      "survived:flip-gte@sources/fixed_point64.move:210",
+      "survived:flip-eq@sources/fixed_point64.move:139",
+      "survived:flip-eq@sources/fixed_point64.move:155",
+      "survived:flip-eq@sources/fixed_point64.move:166",
+      "survived:flip-neq@sources/fixed_point64.move:468",
+      "survived:flip-neq@sources/fixed_point64.move:469",
+      "survived:drop-assert@sources/fixed_point64.move:101"
+    ],
+    "adjudicated_equivalent": [],
+    "planted_silent": [],
+    "signed_having_learned": null,
+    "dry": false
+  },
+  {
+    "round": 2,
+    "date": "2026-07-19",
+    "template": "main",
+    "layer1Only": false,
+    "asserts": 14,
+    "covered": "14/14",
+    "mutations": {
+      "applied": 41,
+      "killed": 39,
+      "survived": 2,
+      "score": 95
+    },
+    "gateExit": 1,
+    "findings": [
+      "survived:flip-lt@sources/fixed_point64.move:114",
+      "survived:drop-assert@sources/fixed_point64.move:101"
+    ],
+    "newFindings": [],
+    "adjudicated_equivalent": [],
+    "planted_silent": [],
+    "signed_having_learned": null,
+    "dry": true
+  },
+  {
+    "round": 3,
+    "date": "2026-07-19",
+    "template": "main",
+    "layer1Only": false,
+    "asserts": 14,
+    "covered": "14/14",
+    "mutations": {
+      "applied": 41,
+      "killed": 37,
+      "survived": 4,
+      "score": 90
+    },
+    "gateExit": 1,
+    "findings": [
+      "survived:flip-lt@sources/fixed_point64.move:114",
+      "survived:flip-lt@sources/fixed_point64.move:232",
+      "survived:flip-gt@sources/fixed_point64.move:221",
+      "survived:drop-assert@sources/fixed_point64.move:101"
+    ],
+    "newFindings": [],
+    "adjudicated_equivalent": [],
+    "planted_silent": [],
+    "signed_having_learned": null,
+    "dry": true
+  },
+  {
+    "round": 4,
+    "date": "2026-07-19",
+    "template": "varied",
+    "layer1Only": false,
+    "asserts": 14,
+    "covered": "14/14",
+    "mutations": {
+      "applied": 41,
+      "killed": 34,
+      "survived": 7,
+      "score": 83
+    },
+    "gateExit": 1,
+    "findings": [
+      "survived:flip-lt@sources/fixed_point64.move:114",
+      "survived:flip-lt@sources/fixed_point64.move:232",
+      "survived:flip-gt@sources/fixed_point64.move:221",
+      "survived:flip-lte@sources/fixed_point64.move:101",
+      "survived:flip-neq@sources/fixed_point64.move:468",
+      "survived:flip-neq@sources/fixed_point64.move:469",
+      "survived:drop-assert@sources/fixed_point64.move:101"
+    ],
+    "newFindings": [],
+    "adjudicated_equivalent": [],
+    "planted_silent": [],
+    "signed_having_learned": null,
+    "dry": true
+  }
+]
