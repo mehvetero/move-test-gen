@@ -1,0 +1,9 @@
+[package]
+name = "IntegerMate"
+version = "1.3.0"
+edition = "2024"
+
+[dependencies]
+
+[addresses]
+integer_mate = "0x0"
