@@ -179,3 +179,60 @@ The assignment — plant a true equivalent, flip the pass condition to a confess
 | 4 (L1 validation) | 10–11 | 9 | **14/14, 15/15** | peak 95%, 87.5% | Layer 1 field-proven + cross-team |
 
 Total: 12 scenarios, 43 rounds, all RETIRED.
+
+
+---
+
+# Campaign 5 — cross-family independent measurement
+
+**Measured:** 2026-07-20 · repo state through `322004e` · gate: v1.1 with `--scope` filter (`eval/gate-selftest` 10/10 green) · engine: Venice.ai API · generator models: `DeepSeek-v4-pro` (rounds 1–2, independent), `Qwen3-Coder-480B` (attempted, failed) · `sui 1.74.1-8fc60f1fa966` · pin `mainnet-v1.74.1` · prompts: frozen template text sent via API (each call is a fresh context — no memory of prior rounds).
+
+> **TL;DR:** the "independent measurement" goal from campaigns 3–4 is partially achieved. Two rounds of DeepSeek-v4-pro generation on the same i128 module (campaign 4 scenario 11) produced **5/5 Layer 1 + 13/16 and 14/16 Layer 2** — each via a fresh API call with no prior-round context. This is the first structurally independent cross-family data point: DeepSeek (81–87.5%) vs GPT-5.5 (75–87.5%) on the same module, scored by the same gate. Move is not sufficiently represented in current open-weight model training data — DeepSeek and Qwen3-Coder both required syntax fixes (private field access, fabricated APIs) that limit scalability of this approach.
+
+## Scenario
+
+| # | Module | Generator | Rounds (valid) | Layer 1 | Layer 2 | Tests generated |
+|---|---|---|---|---|---|---|
+| 12 | i128.move (same as scenario 11) | DeepSeek-v4-pro | 2 (R1, R2) | **5/5** both | R1: 13/16 (81%) · R2: 14/16 (87.5%) | R1: 118 (of 148) · R2: 106 (of 112) |
+
+## Cross-family comparison (same module, same gate)
+
+| Model | Campaign | R1 killed | Best killed | Layer 1 |
+|---|---|---|---|---|
+| GPT-5.5 | C4 (scenario 11) | 12/16 (75%) | 14/16 (87.5%, R5) | 15/15 every round |
+| DeepSeek-v4-pro | C5 (scenario 12) | 13/16 (81%) | 14/16 (87.5%, R2) | 5/5 every round† |
+
+† C4 counted 15 asserts (full package); C5 used target-scoped Layer 1 (5 asserts in i128 only). Both achieved 100% on their respective denominators.
+
+## Models attempted
+
+| Model | Via | Result |
+|---|---|---|
+| **DeepSeek-v4-pro** | Venice.ai | ✓ Usable after fixes: `.bits`→`as_u128()`, abort_code `0`→`i128::EOverflow`, unused imports removed, truncated module closed. Failing tests removed (not fixed). |
+| **DeepSeek-v4-pro** (R3) | Venice.ai | ✗ API timeout on long prompt. Retried with shorter prompt — output lacked module wrapper. Operator rewrote from intent: excluded from independent data. |
+| **Qwen3-Coder-480B** | Venice.ai | ✗ Generated entirely fabricated API (`from_u8`, `from_u16`, `start_scenario`, `new_signer` — none exist in i128). Move is not in this model's training data. |
+
+## What campaign 5 did NOT prove
+
+1. **Full protocol compliance.** Only 2 valid rounds — not enough for the retirement protocol (needs 2 dry + varied sweep). The scenario is NOT retired.
+2. **Truly hands-off generation.** Every DeepSeek output required mechanical fixes (field access, abort codes, imports). The fixes are pattern-based and content-preserving (the test logic is Brain's, not the operator's), but "zero-touch independent" this is not.
+3. **Scalability.** Move's niche status means no open-weight model generates correct Move without fixes. Cross-family measurement at scale requires either (a) models trained on Move, or (b) an automated fix layer between generation and scoring.
+4. **Model diversity beyond two families.** Qwen3-Coder failed entirely. The comparison is GPT-5.5 vs DeepSeek only.
+
+## What it DID prove
+
+- **Independence is structurally achievable** via API calls with no session memory.
+- **Cross-family scores converge:** both families reach 87.5% peak on i128, suggesting the ceiling is module-determined, not model-determined.
+- **Layer 1 is model-agnostic:** 5/5 (DeepSeek) and 15/15 (GPT-5.5) — every abort path covered regardless of generator family.
+
+## Cumulative
+
+| Campaign | Scenarios | Rounds | Layer 1 | Layer 2 | Key achievement |
+|---|---|---|---|---|---|
+| 1 (fixtures) | 00–05 | 18 | all covered | 53/53 killed | baseline |
+| 2 (honesty) | 06 | 3 | 4/4 | 6/8 + 2 adjudicated | gate confession |
+| 3 (real protocol) | 07–09 | 13 | mixed | fund 3/3, oracle 21/22, farm null | first real code |
+| 4 (L1 validation) | 10–11 | 9 | **14/14, 15/15** | peak 95%, 87.5% | Layer 1 field-proven |
+| 5 (cross-family) | 12 | 2 (valid) | **5/5** | peak 87.5% | independent + cross-family |
+
+Total: 13 scenarios, 47 rounds (45 valid), all campaigns closed or data-complete.
