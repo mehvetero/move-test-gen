@@ -1,0 +1,5 @@
+{
+  "note": "lint rules: MOV-001 (access control), MOV-002 (unchecked mul), MOV-003 (div zero). Synthetic sources, no sui needed.",
+  "type": "script",
+  "script": "test.mjs"
+}

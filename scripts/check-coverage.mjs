@@ -394,6 +394,7 @@ if (args.length < 2) {
 
 const [sourceDir, testDir] = args.map(a => resolve(a));
 const doMutate = args.includes('--mutate');
+const doLint = args.includes('--lint');
 const scopeIdx = args.indexOf('--scope');
 const scopeFiles = scopeIdx >= 0 ? args[scopeIdx + 1].split(',').map(f => f.trim()) : null;
 let mutationWeak = false;
@@ -539,7 +540,7 @@ const coverageScore = targetAsserts.length > 0
 console.log(`Assert coverage: ${coverageScore}% (${covered.length}/${targetAsserts.length})`);
 if (unpaired.length > 0) {
   console.log(`⚠ ${unpaired.length} assert(s) have no expected_failure test`);
-  process.exit(1);
+  process.exitCode = 1;
 }
 if (mutationSkipped) {
   console.log('⚠ All asserts paired, but --mutate was requested and could not run');
@@ -547,4 +548,14 @@ if (mutationSkipped) {
   console.log('✓ All asserts paired, but mutation testing found weaknesses (see above)');
 } else {
   console.log('✓ All asserts have matching expected_failure tests');
+}
+
+// Security lint (optional)
+if (doLint) {
+  const { runLint, printLintResults } = await import('./lint.mjs');
+  const { findings, ruleCount } = await runLint(sourceDir);
+  printLintResults(findings, ruleCount);
+  if (findings.some(f => f.severity === 'CRITICAL' || f.severity === 'HIGH')) {
+    process.exitCode = 1;
+  }
 }

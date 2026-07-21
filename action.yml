@@ -20,6 +20,10 @@ inputs:
     description: 'Comma-separated list of files to mutate (target only)'
     required: false
     default: ''
+  lint:
+    description: 'Run security pattern detection (MOV-001, MOV-002, MOV-003)'
+    required: false
+    default: 'false'
 runs:
   using: 'composite'
   steps:
@@ -37,5 +41,8 @@ runs:
         fi
         if [ -n "${{ inputs.scope }}" ]; then
           ARGS="$ARGS --scope '${{ inputs.scope }}'"
+        fi
+        if [ "${{ inputs.lint }}" = "true" ]; then
+          ARGS="$ARGS --lint"
         fi
         node "$GATE" $ARGS
