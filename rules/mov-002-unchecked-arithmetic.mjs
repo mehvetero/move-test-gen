@@ -31,12 +31,27 @@ const TITLE = 'integer multiplication may overflow without u128 promotion';
 export function check(source, filename) {
   const findings = [];
   const lines = source.split('\n');
+  let inTestFn = false;
+  let testBraceDepth = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
 
     if (trimmed.startsWith('//')) continue;
+
+    // track #[test] and #[test_only] function bodies — skip them
+    if (/^#\[test[\],\s]/.test(trimmed) || /^#\[test_only\]/.test(trimmed)) {
+      inTestFn = true;
+      testBraceDepth = 0;
+      continue;
+    }
+    if (inTestFn) {
+      testBraceDepth += (line.match(/{/g) || []).length;
+      testBraceDepth -= (line.match(/}/g) || []).length;
+      if (testBraceDepth <= 0 && /}/.test(line)) { inTestFn = false; }
+      continue;
+    }
 
     // look for multiplication: word * word (not inside a cast expression)
     const mulMatches = [...trimmed.matchAll(/(\w+)\s*\*\s*(\w+)/g)];
@@ -54,6 +69,10 @@ export function check(source, filename) {
 
       // skip if both operands are literals (constants)
       if (/^\d+$/.test(m[1]) && /^\d+$/.test(m[2])) continue;
+
+      // skip if operands are already u128/u256 typed (naming convention)
+      if (/_u256$/.test(m[1]) || /_u256$/.test(m[2])) continue;
+      if (/_u128$/.test(m[1]) || /_u128$/.test(m[2])) continue;
 
       // skip if inside a type annotation or const declaration
       if (/const\s+\w+\s*:\s*u\d+\s*=/.test(fullLine)) continue;
