@@ -31,17 +31,16 @@ export function check(source, filename) {
 
     if (trimmed.startsWith('//')) continue;
 
-    const fnMatch = trimmed.match(/^public\s+(?:entry\s+)?fun\s+(\w+)\s*\(([^)]*)\)/);
+    const fnMatch = trimmed.match(/^public\s+(?:entry\s+)?fun\s+(\w+)(?:<[^>]*>)?\s*\(([^)]*)\)/);
     if (!fnMatch) {
-      // handle multi-line signatures: public fun name(\n  params\n)
-      const startMatch = trimmed.match(/^public\s+(?:entry\s+)?fun\s+(\w+)\s*\(/);
+      const startMatch = trimmed.match(/^public\s+(?:entry\s+)?fun\s+(\w+)(?:<[^>]*>)?\s*\(/);
       if (startMatch) {
         let params = '';
         for (let j = i; j < Math.min(i + 10, lines.length); j++) {
           params += lines[j];
           if (lines[j].includes(')')) break;
         }
-        const fullMatch = params.match(/public\s+(?:entry\s+)?fun\s+(\w+)\s*\(([^)]*)\)/);
+        const fullMatch = params.match(/public\s+(?:entry\s+)?fun\s+(\w+)(?:<[^>]*>)?\s*\(([^)]*)\)/);
         if (fullMatch) {
           checkFunction(fullMatch[1], fullMatch[2], i + 1, filename, findings);
         }
