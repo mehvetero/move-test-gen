@@ -74,13 +74,17 @@ function checkFunction(name, params, lineNo, filename, findings, isTestOnly) {
   const hasMut = /&mut\s+(?!TxContext)(?!tx_context)/.test(params);
   if (!hasMut) return;
 
-  // does it have a capability parameter?
-  const hasCap = /[A-Z]\w*Cap\b|AdminCap|OwnerCap|ManagerCap|AuthCap/.test(params);
+  // does it have a capability or key parameter?
+  const hasCap = /[A-Z]\w*Cap\b|AdminCap|OwnerCap|ManagerCap|AuthCap|[A-Z]\w*Key\b/.test(params);
   if (hasCap) return;
 
-  // does it have a signer/witness parameter that implies auth?
-  const hasWitness = /_:\s+\w+|witness|Witness/.test(params) && /\bdrop\b/.test(params);
+  // does it have a witness parameter that implies auth?
+  const hasWitness = /Witness\b/.test(params) || /\bkey\s*:\s*\w+|\b_key\s*:\s*\w+/.test(params);
   if (hasWitness) return;
+
+  // does it have a Version/VersionGate parameter (contract version check as access gate)?
+  const hasVersion = /\bVersion\b|\bVersionGate\b/.test(params);
+  if (hasVersion) return;
 
   findings.push({
     rule: RULE_ID,
