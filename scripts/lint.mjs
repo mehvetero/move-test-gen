@@ -59,6 +59,9 @@ export async function runLint(sourcesDir) {
     const source = readFileSync(srcPath, 'utf8');
     const filename = relative(process.cwd(), srcPath);
 
+    // skip test-only modules (entire file is test scaffolding)
+    if (/^#\[test_only\]/m.test(source)) continue;
+
     for (const rule of rules) {
       const findings = rule.check(source, filename);
       allFindings.push(...findings);
