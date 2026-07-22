@@ -88,7 +88,7 @@ function checkFunction(name, params, lineNo, filename, findings, isTestOnly) {
 
   // does it take user-owned assets (DeFi user-facing — permissionless by design)?
   // Coin<T>, LP tokens, receipts passed by value act as implicit access control
-  const hasUserAsset = /Coin<|LPToken|LpToken|LP_Token|Receipt|FlashLoan/.test(params);
+  const hasUserAsset = /Coin<|Balance<|LPToken|LpToken|LP_Token|Receipt|FlashLoan/.test(params);
   if (hasUserAsset) return;
 
   // does it only mutate a user-owned token/NFT (self-modification pattern)?
