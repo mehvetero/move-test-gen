@@ -36,6 +36,7 @@ export function check(source, filename) {
   let fnStartLine = 0;
   let braceDepth = 0;
   let fnLines = [];
+  let isTestFn = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -43,9 +44,15 @@ export function check(source, filename) {
 
     if (trimmed.startsWith('//')) continue;
 
+    if (/^#\[test[\],\s]/.test(trimmed) || /^#\[test_only\]/.test(trimmed)) {
+      isTestFn = true;
+    }
+
     // detect function start
     if (/\bfun\s+\w+/.test(trimmed)) {
       inFunction = true;
+      if (isTestFn) { inFunction = false; isTestFn = false; continue; }
+      isTestFn = false;
       fnStartLine = i;
       fnLines = [];
       braceDepth = 0;
