@@ -25,11 +25,21 @@ export function check(source, filename) {
   const findings = [];
   const lines = source.split('\n');
 
+  let testOnlyNext = false;
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
 
     if (trimmed.startsWith('//')) continue;
+
+    if (/#\[test_only\]/.test(trimmed)) {
+      testOnlyNext = true;
+      continue;
+    }
+
+    const isTestOnly = testOnlyNext;
+    if (testOnlyNext && /\bfun\b/.test(trimmed)) testOnlyNext = false;
 
     const fnMatch = trimmed.match(/^public\s+(?:entry\s+)?fun\s+(\w+)(?:<[^>]*>)?\s*\(([^)]*)\)/);
     if (!fnMatch) {
@@ -42,22 +52,23 @@ export function check(source, filename) {
         }
         const fullMatch = params.match(/public\s+(?:entry\s+)?fun\s+(\w+)(?:<[^>]*>)?\s*\(([^)]*)\)/);
         if (fullMatch) {
-          checkFunction(fullMatch[1], fullMatch[2], i + 1, filename, findings);
+          checkFunction(fullMatch[1], fullMatch[2], i + 1, filename, findings, isTestOnly);
         }
       }
       continue;
     }
 
-    checkFunction(fnMatch[1], fnMatch[2], i + 1, filename, findings);
+    checkFunction(fnMatch[1], fnMatch[2], i + 1, filename, findings, isTestOnly);
   }
 
   return findings;
 }
 
-function checkFunction(name, params, lineNo, filename, findings) {
-  // skip init, destroy, test functions
+function checkFunction(name, params, lineNo, filename, findings, isTestOnly) {
+  if (isTestOnly) return;
   if (name === 'init' || name.includes('testing') || name.includes('destroy')) return;
   if (name.startsWith('test_')) return;
+  if (name.endsWith('_test')) return;
 
   // does it take &mut on something other than TxContext?
   const hasMut = /&mut\s+(?!TxContext)(?!tx_context)/.test(params);
