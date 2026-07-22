@@ -86,6 +86,16 @@ function checkFunction(name, params, lineNo, filename, findings, isTestOnly) {
   const hasVersion = /\bVersion\b|\bVersionGate\b/.test(params);
   if (hasVersion) return;
 
+  // does it take user-owned assets (DeFi user-facing — permissionless by design)?
+  // Coin<T>, LP tokens, receipts passed by value act as implicit access control
+  const hasUserAsset = /Coin<|LPToken|LpToken|LP_Token|Receipt|FlashLoan/.test(params);
+  if (hasUserAsset) return;
+
+  // does it only mutate a user-owned token/NFT (self-modification pattern)?
+  const mutParams = params.match(/&mut\s+(?!TxContext)(?!tx_context)\w+/g) || [];
+  const onlySelfMut = mutParams.every(p => /Token|NFT|Ticket|Receipt|Position/.test(p));
+  if (onlySelfMut && mutParams.length > 0) return;
+
   findings.push({
     rule: RULE_ID,
     severity: SEVERITY,
