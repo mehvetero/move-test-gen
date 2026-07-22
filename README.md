@@ -75,6 +75,32 @@ Mutation testing injects deterministic bugs (flip a comparison, drop an assert) 
 
 By default, `--mutate` applies one mutation per operator per line. All 7 operators (flip `<`/`>`/`<=`/`>=`/`==`/`!=`, drop `assert!`) run exhaustively — every matchable line is tested.
 
+## Security lint
+
+The gate also includes `--lint` — regex-based security pattern detection for Sui Move:
+
+```bash
+node scripts/check-coverage.mjs ./sources ./tests --lint
+```
+
+| Rule | Severity | What it catches |
+|------|----------|----------------|
+| **MOV-001** | HIGH | `public fun` with `&mut` but no capability, key, or witness parameter |
+| **MOV-002** | HIGH | `u64 * u64` without `u128` promotion before multiplication |
+| **MOV-003** | MEDIUM | Division by a variable with no prior `assert!(x != 0, ...)` |
+
+Rules are pure functions in `rules/*.mjs` — each takes source text and returns findings. The engine skips `#[test_only]` modules and `#[test]` function bodies automatically.
+
+MOV-001 recognizes several Sui Move access control idioms beyond `*Cap`: `Witness<T>`, `Version`, `*Key`, and user-asset parameters (`Coin<T>`, LP tokens) that make a function intentionally permissionless.
+
+Validated against Kriya DEX (MOV-001 catches the `update_pool` access control gap from our [security report](https://github.com/efficacy-finance/kriya-dex-interface/issues/2)) and Scallop lending protocol (172 source files, zero false positives on production code).
+
+Or run lint standalone:
+
+```bash
+node scripts/lint.mjs ./sources
+```
+
 ## What this proves — and what it doesn't
 
 The coverage checker is a deterministic floor: it proves every assert has a matching `#[expected_failure]` test, that generated tests compile, and (with `--mutate`) that the suite actually catches injected bugs. It does **not** prove a test asserts the right thing — that judgment stays with the reviewer.
@@ -116,13 +142,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mehvetero/move-test-gen@v1.1.0
+      - uses: mehvetero/move-test-gen@v1.2.0
         with:
           sources: sources
           tests: tests
 ```
 
-Layer 1 (assert pairing) runs in seconds with zero dependencies. For mutation testing, add `mutate: 'true'` and install `sui` — see [examples/workflows/nightly-mutation.yml](examples/workflows/nightly-mutation.yml) for a nightly schedule.
+Layer 1 (assert pairing) runs in seconds with zero dependencies. For mutation testing, add `mutate: 'true'` and install `sui` — see [examples/workflows/nightly-mutation.yml](examples/workflows/nightly-mutation.yml) for a nightly schedule. For security lint, add `lint: 'true'`.
 
 Or run the checker standalone:
 
@@ -135,9 +161,10 @@ npx mehvetero/move-test-gen sources tests --mutate
 
 The skill is measured, not trusted: `eval/` holds a scenario lab that fires frozen
 prompt templates at bait modules and scores every round with the gate — retirement
-by saturation, dated records, figures never edited by hand. Two campaigns closed
-so far: 53/53 mutants across six scenarios, then the survivor path — the gate
-confessing what it can't decide. Full records: [eval/RESULTS.md](eval/RESULTS.md).
+by saturation, dated records, figures never edited by hand. Five campaigns closed:
+fixtures (53/53), honesty channel, real protocol (SuiTears), Layer 1 validation
+(SuiTears + Cetus), and cross-family (DeepSeek vs GPT-5.5). 13 scenarios, 47
+rounds. Full records: [eval/RESULTS.md](eval/RESULTS.md).
 
 The lab's methodology — the retirement protocol, frozen templates, and the honesty-
 channel assignment — is borrowed, with thanks, from
