@@ -1,5 +1,5 @@
 name: 'move-test-gen coverage check'
-description: 'Assert pairing + mutation testing for Sui Move packages'
+description: 'Assert pairing, mutation testing, and security lint for Sui Move packages'
 branding:
   icon: 'eye'
   color: 'purple'
