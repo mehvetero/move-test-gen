@@ -1,6 +1,6 @@
 {
   "name": "move-test-gen",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Coverage checker for Sui Move test suites — assert pairing + mutation testing",
   "type": "module",
   "bin": {
