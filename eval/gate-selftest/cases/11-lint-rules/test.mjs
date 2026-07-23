@@ -228,6 +228,68 @@ assert('MOV-003: passes with assert before division', check003(safe_div_assert, 
 assert('MOV-003: skips division by literal', check003(safe_div_literal, 'fee.move').length === 0);
 assert('MOV-003: skips #[test] function body', check003(safe_div_test, 'limiter.move').length === 0);
 
+// ── MOV-004: unsafe downcast ─────────────────────────────────────────
+
+import { check as check004 } from '../../../../rules/mov-004-unsafe-downcast.mjs';
+
+// unsafe downcast — must be flagged
+const unsafe_downcast = `
+module example::rewards {
+    public fun pending_reward(stake: u128, rate: u128): u64 {
+        let reward = stake * rate / 1000000;
+        (reward as u64)
+    }
+}`;
+
+// safe downcast with overflow check — must be skipped
+const safe_downcast = `
+module example::rewards {
+    const MAX_U64: u256 = 18446744073709551615;
+    public fun collect(payable: u256): u64 {
+        assert!(payable <= MAX_U64, 0);
+        (payable as u64)
+    }
+}`;
+
+// downcast inside mul_div library function — must be skipped
+const lib_downcast = `
+module example::math {
+    public fun mul_div(a: u64, b: u64, c: u64): u64 {
+        ((
+            (a as u128) * (b as u128) / (c as u128)
+        ) as u64)
+    }
+}`;
+
+// downcast of known-small field (duration) — must be skipped
+const small_field_downcast = `
+module example::limiter {
+    public fun calc(limiter: &Limiter, now: u64): u64 {
+        now / (limiter.outflow_segment_duration as u64)
+    }
+}`;
+
+// #[test] function — must be skipped
+const test_downcast = `
+module example::test {
+    public fun real_fn(): u64 { 42 }
+    #[test]
+    fun test_cast() {
+        let big: u128 = 999;
+        let small = (big as u64);
+    }
+}`;
+
+const r004a = check004(unsafe_downcast, 'rewards.move');
+assert('MOV-004: flags unsafe downcast', r004a.length > 0);
+assert('MOV-004: rule ID correct', r004a[0].rule === 'MOV-004');
+assert('MOV-004: severity MEDIUM', r004a[0].severity === 'MEDIUM');
+
+assert('MOV-004: passes with overflow assert', check004(safe_downcast, 'rewards.move').length === 0);
+assert('MOV-004: skips mul_div library function', check004(lib_downcast, 'math.move').length === 0);
+assert('MOV-004: skips known-small field (duration)', check004(small_field_downcast, 'limiter.move').length === 0);
+assert('MOV-004: skips #[test] function', check004(test_downcast, 'test.move').length === 0);
+
 // ── Summary ──────────────────────────────────────────────────────────
 
 if (errs.length) {
