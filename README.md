@@ -77,7 +77,7 @@ By default, `--mutate` applies one mutation per operator per line. All 7 operato
 
 ## Security lint
 
-The gate also includes `--lint` — regex-based security pattern detection for Sui Move:
+The gate also includes `--lint` — security pattern detection for Sui Move:
 
 ```bash
 node scripts/check-coverage.mjs ./sources ./tests --lint
@@ -88,12 +88,13 @@ node scripts/check-coverage.mjs ./sources ./tests --lint
 | **MOV-001** | HIGH | `public fun` with `&mut` but no capability, key, or witness parameter |
 | **MOV-002** | HIGH | `u64 * u64` without `u128` promotion before multiplication |
 | **MOV-003** | MEDIUM | Division by a variable with no prior `assert!(x != 0, ...)` |
+| **MOV-004** | MEDIUM | `(expr as u64)` downcast from u128/u256 without overflow check |
 
-Rules are pure functions in `rules/*.mjs` — each takes source text and returns findings. The engine skips `#[test_only]` modules and `#[test]` function bodies automatically.
+Rules are pure functions in `rules/*.mjs`. The engine skips `#[test_only]` modules and `#[test]` function bodies automatically. MOV-002 and MOV-004 use a lightweight Move parser (`scripts/move-parser.mjs`) to track variable types through declarations, casts, and naming conventions — if an operand is known u128/u256, the finding is suppressed instead of relying on suffix heuristics.
 
-MOV-001 recognizes several Sui Move access control idioms beyond `*Cap`: `Witness<T>`, `Version`, `*Key`, and user-asset parameters (`Coin<T>`, LP tokens) that make a function intentionally permissionless.
+MOV-001 recognizes several Sui Move access control idioms beyond `*Cap`: `Witness<T>`, `Version`, `*Key`, and user-asset parameters (`Coin<T>`, `Balance<T>`, LP tokens) that make a function intentionally permissionless.
 
-Validated against Kriya DEX (MOV-001 catches the `update_pool` access control gap from our [security report](https://github.com/efficacy-finance/kriya-dex-interface/issues/2)) and Scallop lending protocol (172 source files, zero false positives on production code).
+Validated against Kriya DEX, Scallop lending (172 files), Bucket Protocol, and Turbos CLMM. Submitted a [fix PR](https://github.com/Bucket-Protocol/v1-core/pull/12) for an overflow found by MOV-002 in Bucket's decimal scaling functions.
 
 Or run lint standalone:
 
@@ -142,7 +143,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: mehvetero/move-test-gen@v1.2.0
+      - uses: mehvetero/move-test-gen@v1.3.0
         with:
           sources: sources
           tests: tests
