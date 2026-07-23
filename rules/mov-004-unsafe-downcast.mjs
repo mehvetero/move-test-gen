@@ -26,6 +26,7 @@ const LIB_FUNCTIONS = new Set([
   'mul_shr', 'mul_shl', 'full_mul',
   'pow', 'sqrt', 'log2',
 ]);
+const LIB_PATTERNS = ['mul_div', 'mul_factor', 'safe_mul', 'checked_mul', 'full_mul'];
 
 /**
  * @param {string} source
@@ -39,7 +40,7 @@ export function check(source, filename) {
 
   for (const fn of mod.functions) {
     if (fn.isTest || fn.isTestOnly) continue;
-    if (LIB_FUNCTIONS.has(fn.name)) continue;
+    if (LIB_FUNCTIONS.has(fn.name) || LIB_PATTERNS.some(p => fn.name.includes(p))) continue;
     if (!fn.body) continue;
 
     for (const cast of fn.body.casts) {
