@@ -11,6 +11,8 @@
  * ask "what type is this variable?" without regex guessing.
  */
 
+const WIDE_SET = new Set(['u128', 'u256']);
+
 /**
  * Parse a Move source file into module-level structure.
  * @param {string} source — file content
@@ -265,6 +267,41 @@ function parseBody(bodyLines, offset) {
       const [, vname, castType] = letCast;
       variables.push({ name: vname, type: castType, line: lineNo });
       varTypes[vname] = castType;
+    }
+
+    // destructuring with casts: let (a, b) = ((x as u256), (y as u256))
+    const letDestruct = trimmed.match(/let\s+\(([^)]+)\)\s*=\s*\((.+)\)/);
+    if (letDestruct && !letTyped) {
+      const names = letDestruct[1].split(',').map(s => s.trim());
+      const exprs = letDestruct[2];
+      // find all cast types in order
+      const castTypes = [...exprs.matchAll(/as\s+(u(?:128|256))\)/g)].map(c => c[1]);
+      for (let k = 0; k < names.length && k < castTypes.length; k++) {
+        const vname = names[k];
+        if (vname && castTypes[k]) {
+          variables.push({ name: vname, type: castTypes[k], line: lineNo });
+          varTypes[vname] = castTypes[k];
+        }
+      }
+    }
+
+    // variable assigned from expression involving a known-wide variable
+    // let numerator1 = liquidity_u256 << RESOLUTION → u256
+    // let diff = a_u128 - b_u128 → u128
+    if (!letTyped && !letCast) {
+      const letExpr = trimmed.match(/let\s+(?:mut\s+)?(\w+)\s*=\s*(.+)/);
+      if (letExpr) {
+        const [, vname, expr] = letExpr;
+        const tokens = expr.match(/\w+/g) || [];
+        for (const tok of tokens) {
+          const tokType = varTypes[tok];
+          if (tokType && WIDE_SET.has(tokType)) {
+            variables.push({ name: vname, type: tokType, line: lineNo });
+            varTypes[vname] = tokType;
+            break;
+          }
+        }
+      }
     }
 
     // variable from function call with known return type suffix
