@@ -207,9 +207,11 @@ function parseOneParam(s) {
   // patterns: `name: Type`, `name: &Type`, `name: &mut Type`, `_: Type`
   const m = s.match(/(\w+)\s*:\s*(&mut\s+|&)?(.+)/);
   if (!m) return null;
+  // clean trailing parens/commas/whitespace from type
+  const rawType = m[3].trim().replace(/[),;\s]+$/, '');
   return {
     name: m[1],
-    type: m[3].trim(),
+    type: rawType,
     isMut: !!m[2] && m[2].includes('mut'),
     isRef: !!m[2],
   };
@@ -325,13 +327,23 @@ function parseBody(bodyLines, offset) {
       });
     }
 
-    // type casts: (expr as uXX)
+    // type casts: (expr as uXX) — handle both simple and nested parens
     for (const cm of trimmed.matchAll(/\(([^)]+?)\s+as\s+(u(?:8|16|32|64|128|256))\)/g)) {
       casts.push({
         line: lineNo,
         expr: cm[1].trim(),
         fromType: inferType(cm[1].trim(), varTypes),
         toType: cm[2],
+      });
+    }
+    // also catch `) as uXX)` pattern (closing a multi-line expression)
+    const trailingCast = trimmed.match(/\)\s+as\s+(u(?:8|16|32|64|128|256))\)\s*;?\s*$/);
+    if (trailingCast) {
+      casts.push({
+        line: lineNo,
+        expr: '(multi-line expression)',
+        fromType: null,
+        toType: trailingCast[1],
       });
     }
 

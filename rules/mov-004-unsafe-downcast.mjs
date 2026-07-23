@@ -5,26 +5,27 @@
  * assert guards against truncation. Move's `as` operator silently
  * truncates on overflow — unlike arithmetic ops which abort.
  *
- * Why it matters: Bucket Protocol's interest_table.move correctly
- * checks `assert!(interest_payable <= max_u64())` before downcasting.
- * Code that skips this check risks silent value corruption — balances,
- * debt amounts, or reward calculations silently wrapping to small
- * numbers.
- *
- * What this catches:
- *   let result = (big_value as u64);  — no prior assert
- *
- * What this skips:
- *   - Downcasts inside mul_factor / mul_div (library return values,
- *     designed to fit u64 by construction)
- *   - Lines with assert on the same or preceding line
- *   - Test functions
- *   - Casts from u8/u16/u32 (always safe)
+ * Uses the Move parser to:
+ *   - track the source type of the expression being cast
+ *   - skip casts from u8/u16/u32 (always safe, no truncation)
+ *   - check for overflow asserts within the same function scope
+ *   - skip test functions and library internals
  */
+
+import { parseModule, getVarType, hasAssertBefore } from '../scripts/move-parser.mjs';
 
 const RULE_ID = 'MOV-004';
 const SEVERITY = 'MEDIUM';
 const TITLE = 'unsafe downcast to u64 without overflow check';
+
+const SAFE_SOURCE_TYPES = new Set(['u8', 'u16', 'u32', 'u64', 'literal']);
+const LIB_FUNCTIONS = new Set([
+  'mul_div', 'mul_factor', 'mul_div_u128', 'mul_factor_u128',
+  'mul_factor_u256', 'checked_mul', 'is_safe_mul',
+  'mul_div_floor', 'mul_div_round', 'mul_div_ceil',
+  'mul_shr', 'mul_shl', 'full_mul',
+  'pow', 'sqrt', 'log2',
+]);
 
 /**
  * @param {string} source
@@ -33,91 +34,68 @@ const TITLE = 'unsafe downcast to u64 without overflow check';
  */
 export function check(source, filename) {
   const findings = [];
+  const mod = parseModule(source);
   const lines = source.split('\n');
-  let inTestFn = false;
-  let testBraceDepth = 0;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
+  for (const fn of mod.functions) {
+    if (fn.isTest || fn.isTestOnly) continue;
+    if (LIB_FUNCTIONS.has(fn.name)) continue;
+    if (!fn.body) continue;
 
-    if (trimmed.startsWith('//')) continue;
+    for (const cast of fn.body.casts) {
+      if (cast.toType !== 'u64') continue;
 
-    // skip #[test] and #[test_only] function bodies
-    if (/^#\[test[\],\s]/.test(trimmed) || /^#\[test_only\]/.test(trimmed)) {
-      inTestFn = true;
-      testBraceDepth = 0;
-      continue;
-    }
-    if (inTestFn) {
-      testBraceDepth += (line.match(/{/g) || []).length;
-      testBraceDepth -= (line.match(/}/g) || []).length;
-      if (testBraceDepth <= 0 && /}/.test(line)) { inTestFn = false; }
-      continue;
-    }
+      // if we know the source type and it fits in u64, skip
+      const srcType = cast.fromType || inferTypeFromExpr(cast.expr, fn);
+      if (srcType && SAFE_SOURCE_TYPES.has(srcType)) continue;
 
-    // look for `as u64)` pattern — downcast from wider type
-    if (!/as\s+u64\s*\)/.test(trimmed)) continue;
+      // check for overflow assert before this cast in the function
+      if (hasAssertBefore(fn, cast.line, /<=.*max_u64|<=.*MAX_U64|<=.*18446744073709551615/i)) continue;
 
-    // skip if this is inside a mul_factor / mul_div call (library return pattern)
-    if (/mul_factor|mul_div|mul_factor_u128|mul_factor_u256/.test(trimmed)) continue;
+      // skip if the line contains mul_factor / mul_div (library return)
+      const lineText = (lines[cast.line - 1] || '').trim();
+      if (/mul_factor|mul_div/.test(lineText)) continue;
 
-    // skip if the enclosing function is a library math function (mul_div, mul_factor pattern)
-    let inLibFn = false;
-    for (let j = Math.max(0, i - 8); j < i; j++) {
-      if (/fun\s+(mul_div|mul_factor|mul_div_u128|checked_mul|is_safe_mul)/.test(lines[j])) {
-        inLibFn = true;
-        break;
+      // skip constants:: calls (values small by design)
+      if (/constants::\w+\(\)/.test(cast.expr)) continue;
+
+      // skip known-small field names
+      if (/\b(duration|decimals?|precision_decimal|weight|ratio|percent|fee_rate|scale)\b/.test(cast.expr)) continue;
+
+      // skip event emission context
+      let inEmit = false;
+      for (let j = Math.max(0, cast.line - 5); j <= cast.line - 1; j++) {
+        if (/emit/.test(lines[j] || '')) { inEmit = true; break; }
       }
+      if (inEmit) continue;
+
+      const typeInfo = srcType ? ` (from ${srcType})` : '';
+      findings.push({
+        rule: RULE_ID,
+        severity: SEVERITY,
+        file: filename,
+        line: cast.line,
+        message: `${TITLE}: \`(${cast.expr} as u64)\`${typeInfo} — add overflow check before downcasting`,
+      });
     }
-    if (inLibFn) continue;
-
-    // skip if cast source is from a known-small context (u8/u16/u32 field names)
-    if (/\(\s*\w*(duration|decimals?|precision_decimal|weight|ratio|percent|fee_rate|scale)\s+as\s+u64\)/.test(trimmed)) continue;
-    if (/\(\s*\w+\.\w*(duration|decimals?|precision_decimal|weight|ratio|percent|fee_rate|scale)\s+as\s+u64\)/.test(trimmed)) continue;
-
-    // check preceding lines for overflow assert
-    let hasGuard = false;
-    for (let j = Math.max(0, i - 3); j <= i; j++) {
-      const prev = lines[j].trim();
-      if (/assert!.*<=.*max_u64|assert!.*<=.*MAX_U64|assert!.*<=.*18446744073709551615/i.test(prev)) {
-        hasGuard = true;
-        break;
-      }
-    }
-    if (hasGuard) continue;
-
-    // skip if the cast is from a variable known to be small by context
-    // (e.g., loop counter, decimal value, timestamp)
-    if (/\b(i|j|k|idx|index|decimal|decimals|scale|epoch|timestamp)\b/.test(trimmed) &&
-        /\(\s*(i|j|k|idx|index|decimal|decimals|scale|epoch|timestamp)\s+as\s+u64\)/.test(trimmed)) {
-      continue;
-    }
-
-    // skip constant downcasts (constants::xxx() as u64) — values are small by design
-    if (/constants::\w+\(\)\s+as\s+u64/.test(trimmed)) continue;
-
-    // skip event emission context (downcast for logging, not computation)
-    let inEmit = false;
-    for (let j = Math.max(0, i - 4); j <= i; j++) {
-      if (/emit|emit_param|emit_event/.test(lines[j])) { inEmit = true; break; }
-    }
-    if (inEmit) continue;
-
-    // extract what's being cast for the message
-    const castMatch = trimmed.match(/\(([^)]+)\s+as\s+u64\s*\)/);
-    const expr = castMatch ? castMatch[1].trim() : '?';
-
-    findings.push({
-      rule: RULE_ID,
-      severity: SEVERITY,
-      file: filename,
-      line: i + 1,
-      message: `${TITLE}: \`(${expr} as u64)\` — add overflow check before downcasting from u128/u256`,
-    });
   }
 
   return findings;
+}
+
+function inferTypeFromExpr(expr, fn) {
+  // direct variable lookup
+  const varType = getVarType(fn, expr.trim());
+  if (varType) return varType;
+
+  // field access: obj.field — check if field name suggests small type
+  const fieldMatch = expr.match(/\.(\w+)$/);
+  if (fieldMatch) {
+    const field = fieldMatch[1];
+    if (/duration|decimals?|precision_decimal|weight|scale|epoch/.test(field)) return 'u32';
+  }
+
+  return null;
 }
 
 export const meta = { id: RULE_ID, severity: SEVERITY, title: TITLE };
