@@ -1,0 +1,5 @@
+{
+  "note": "runLint() strips /* */ block comments before handing source to any rule, so a commented-out function is not flagged like live code, while a genuinely live control function still is",
+  "type": "script",
+  "script": "test.mjs"
+}

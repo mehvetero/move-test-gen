@@ -164,10 +164,20 @@ export async function runLint(sourcesDir, options = {}) {
 
     const suppressions = parseSuppressions(source);
 
+    // Rules regex-match raw lines and have no block-comment awareness of
+    // their own -- a function commented out inside /* */ still reads like
+    // live code to them and gets flagged identically to a real one. Strip
+    // block comments once per file, for every rule, before checking; line
+    // count is preserved so finding.line stays correct. `//` comments (and
+    // the suppression pragmas that live in them) are untouched -- only
+    // parseSuppressions/findTestOnlyModuleRanges care about those, and both
+    // already run against the source independently of this.
+    const strippedSource = stripBlockComments(source);
+
     for (const rule of rules) {
       let findings;
       try {
-        findings = rule.check(source, filename);
+        findings = rule.check(strippedSource, filename);
       } catch (err) {
         const id = (rule.meta && rule.meta.id) || rule.file;
         throw new Error(`Error while running rule '${id}' on ${filename}: ${err.message}`, { cause: err });
